@@ -1,4 +1,5 @@
 const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 
 const addressSchema = new mongoose.Schema({
   street: { type: String, required: true },
@@ -61,7 +62,7 @@ const userSchema = new mongoose.Schema({
   },
   profileImage: {
     type: String,
-    default: "https://plus.unsplash.com/premium_photo-1740097670001-28363fa53ee3?q=80&w=2274&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D",
+    default: "https://plus.unsplash.com/premium_photo-1740097670001-28363fa53ee3?q=80&w=2274&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
   },
   isVerified: {
     type: Boolean,
@@ -96,7 +97,11 @@ const userSchema = new mongoose.Schema({
   isAdmin: {
     type: Boolean,
     default: false
-  }
+  },
+  favorites: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Food'
+  }]
 }, {
   timestamps: true,
   toJSON: { virtuals: true },
@@ -106,6 +111,19 @@ const userSchema = new mongoose.Schema({
 // Index for geolocation queries
 userSchema.index({ location: '2dsphere' });
 userSchema.index({ 'addresses.coordinates': '2dsphere' });
+
+// Password hashing middleware
+userSchema.pre('save', async function(next) {
+  if (!this.isModified('password')) return next();
+  const salt = await bcrypt.genSalt(10);
+  this.password = await bcrypt.hash(this.password, salt);
+  next();
+});
+
+// Password comparison method
+userSchema.methods.comparePassword = async function(candidatePassword) {
+  return await bcrypt.compare(candidatePassword, this.password);
+};
 
 // Virtual for total orders
 userSchema.virtual('totalOrders').get(function() {

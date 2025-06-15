@@ -1,6 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { getAllFoods, getFoodDetails, placeOrder, addFood, updatePricesByCategory } = require('../controllers/foodController');
+const {
+  getAllFoods,
+  getFoodDetails,
+  placeOrder,
+  addFood,
+  updatePricesByCategory,
+  addToCart,
+  getCart,
+  updateCartItem,
+  removeCartItem,
+  clearCart,
+  trackOrder
+} = require('../controllers/foodController');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
@@ -8,11 +20,17 @@ const adminMiddleware = require('../middleware/adminMiddleware');
 router.get('/', getAllFoods);
 router.get('/:id', getFoodDetails);
 
-// Protected routes (user)
+// Protected routes
 router.post('/order', authMiddleware, placeOrder);
+router.post('/cart/add', authMiddleware, addToCart);
+router.get('/cart', authMiddleware, getCart);
+router.put('/cart/update', authMiddleware, updateCartItem);
+router.delete('/cart/remove/:foodId', authMiddleware, removeCartItem);
+router.delete('/cart/clear', authMiddleware, clearCart);
+router.get('/orders/:id/track', authMiddleware, trackOrder);
 
-// Protected routes (admin)
+// Admin routes
 router.post('/', authMiddleware, adminMiddleware, addFood);
-router.patch('/prices', authMiddleware, adminMiddleware, updatePricesByCategory);
+router.put('/prices', authMiddleware, adminMiddleware, updatePricesByCategory);
 
 module.exports = router;

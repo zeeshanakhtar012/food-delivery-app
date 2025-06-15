@@ -4,7 +4,19 @@ const Comment = require('../models/Comment');
 const Rating = require('../models/Rating');
 const Order = require('../models/Order');
 const User = require('../models/User');
+const Cart = require('../models/Cart');
+const AuditLog = require('../models/AuditLog');
 const winston = require('winston');
+
+// Debug model imports
+console.log('Winston logger initialized');
+console.log('Food model:', Food);
+console.log('Comment model:', Comment);
+console.log('Rating model:', Rating);
+console.log('Order model:', Order);
+console.log('User model:', User);
+console.log('Cart model:', Cart);
+console.log('AuditLog model:', AuditLog);
 
 // Configure Winston logger
 const logger = winston.createLogger({
@@ -44,6 +56,21 @@ const validateAddFoodInput = (data) => {
     if (data.nutritionalInfo.carbohydrates < 0) errors.push('Carbohydrates cannot be negative');
   }
   return errors;
+};
+
+// Log action for cart and favorites operations
+const logAction = async (action, entity, entityId, details, performedBy) => {
+  try {
+    await AuditLog.create({
+      action,
+      entity,
+      entityId,
+      details,
+      performedBy
+    });
+  } catch (error) {
+    logger.error('Audit log error', { error: error.message, stack: error.stack });
+  }
 };
 
 // Get all foods (public)
@@ -106,89 +133,6 @@ exports.getFoodDetails = async (req, res) => {
     });
   } catch (error) {
     logger.error('Get food details error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Place food order (protected)
-exports.placeOrder = async (req, res) => {
-  console.log('Place order endpoint hit:', req.body);
-  const { items, deliveryAddress, paymentMethod } = req.body;
-
-  try {
-    if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ message: 'Items are required and must be an array' });
-    }
-    if (!deliveryAddress || !deliveryAddress.street || !deliveryAddress.city || 
-        !deliveryAddress.state || !deliveryAddress.postalCode || !deliveryAddress.country) {
-      return res.status(400).json({ message: 'Complete delivery address is required' });
-    }
-    if (!paymentMethod) {
-      return res.status(400).json({ message: 'Payment method is required' });
-    }
-
-    const user = await User.findById(req.user.userId);
-    if (!user || user.isDeleted) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    let totalAmount = 0;
-    const orderItems = [];
-
-    for (const item of items) {
-      if (!item.foodId || !item.quantity || item.quantity < 1) {
-        return res.status(400).json({ message: 'Each item must have a valid foodId and quantity' });
-      }
-
-      const food = await Food.findById(item.foodId);
-      if (!food || !food.isAvailable) {
-        return res.status(400).json({ message: `Food item ${item.foodId} is not available` });
-      }
-
-      const itemTotal = food.price * item.quantity;
-      totalAmount += itemTotal;
-
-      orderItems.push({
-        productId: food._id,
-        quantity: item.quantity,
-        price: food.price
-      });
-    }
-
-    const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-
-    const order = await Order.create({
-      orderId,
-      userId: req.user.userId,
-      items: orderItems,
-      totalAmount,
-      status: 'pending',
-      shipping: {
-        street: deliveryAddress.street,
-        city: deliveryAddress.city,
-        state: deliveryAddress.state,
-        postalCode: deliveryAddress.postalCode,
-        country: deliveryAddress.country
-      }
-    });
-
-    user.orders.push(order._id);
-    user.loyaltyPoints += Math.floor(totalAmount / 10);
-    await user.save();
-
-    res.status(201).json({
-      message: 'Order placed successfully',
-      order: {
-        orderId: order.orderId,
-        totalAmount: order.totalAmount,
-        status: order.status,
-        items: order.items,
-        shipping: order.shipping,
-        createdAt: order.createdAt
-      }
-    });
-  } catch (error) {
-    logger.error('Place order error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
 };
@@ -275,5 +219,454 @@ exports.updatePricesByCategory = async (req, res) => {
   } catch (error) {
     logger.error('Update prices by category error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+// Add item to cart
+exports.addToCart = async (req, res) => {
+  console.log('Add to cart endpoint hit:', req.body);
+  const { foodId, quantity } = req.body;
+
+  try {
+    if (!mongoose.isValidObjectId(foodId)) {
+      return res.status(400).json({ message: 'Invalid food ID' });
+    }
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({ message: 'Quantity must be at least 1' });
+    }
+
+    const food = await Food.findById(foodId);
+    if (!food || !food.isAvailable) {
+      return res.status(400).json({ message: 'Food item is not available' });
+    }
+
+    let cart = await Cart.findOne({ userId: req.user.userId });
+    if (!cart) {
+      cart = await Cart.create({
+        userId: req.user.userId,
+        items: [],
+        totalAmount: 0
+      });
+    }
+
+    const existingItemIndex = cart.items.findIndex(item => item.foodId.toString() === foodId);
+    if (existingItemIndex > -1) {
+      cart.items[existingItemIndex].quantity += quantity;
+      cart.items[existingItemIndex].price = food.price;
+    } else {
+      cart.items.push({
+        foodId,
+        quantity,
+        price: food.price
+      });
+    }
+
+    await cart.save();
+
+    await logAction(
+      'Add to Cart',
+      'Cart',
+      cart._id,
+      `Added ${quantity} of ${food.name} to cart`,
+      req.user.userId
+    );
+
+    res.status(200).json({
+      message: 'Item added to cart successfully',
+      cart
+    });
+  } catch (error) {
+    logger.error('Add to cart error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+// Get cart
+exports.getCart = async (req, res) => {
+  console.log('Get cart endpoint hit');
+  try {
+    const cart = await Cart.findOne({ userId: req.user.userId })
+      .populate('items.foodId', 'name description category price image');
+    if (!cart) {
+      return res.status(200).json({
+        message: 'Cart is empty',
+        cart: { userId: req.user.userId, items: [], totalAmount: 0 }
+      });
+    }
+
+    res.status(200).json({
+      message: 'Cart retrieved successfully',
+      cart
+    });
+  } catch (error) {
+    logger.error('Get cart error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+// Update cart item quantity
+exports.updateCartItem = async (req, res) => {
+  console.log('Update cart item endpoint hit:', req.body);
+  const { foodId, quantity } = req.body;
+
+  try {
+    if (!mongoose.isValidObjectId(foodId)) {
+      return res.status(400).json({ message: 'Invalid food ID' });
+    }
+    if (!quantity || quantity < 1) {
+      return res.status(400).json({ message: 'Quantity must be at least 1' });
+    }
+
+    const cart = await Cart.findOne({ userId: req.user.userId });
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' });
+    }
+
+    const itemIndex = cart.items.findIndex(item => item.foodId.toString() === foodId);
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: 'Item not found in cart' });
+    }
+
+    const food = await Food.findById(foodId);
+    if (!food || !food.isAvailable) {
+      return res.status(400).json({ message: 'Food item is not available' });
+    }
+
+    cart.items[itemIndex].quantity = quantity;
+    cart.items[itemIndex].price = food.price;
+    await cart.save();
+
+    await logAction(
+      'Update Cart Item',
+      'Cart',
+      cart._id,
+      `Updated quantity of ${food.name} to ${quantity}`,
+      req.user.userId
+    );
+
+    res.status(200).json({
+      message: 'Cart item updated successfully',
+      cart
+    });
+  } catch (error) {
+    logger.error('Update cart item error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+// Remove item from cart
+exports.removeCartItem = async (req, res) => {
+  console.log('Remove cart item endpoint hit:', req.params);
+  const { foodId } = req.params;
+
+  try {
+    if (!mongoose.isValidObjectId(foodId)) {
+      return res.status(400).json({ message: 'Invalid food ID' });
+    }
+
+    const cart = await Cart.findOne({ userId: req.user.userId });
+    if (!cart) {
+      return res.status(404).json({ message: 'Cart not found' });
+    }
+
+    const itemIndex = cart.items.findIndex(item => item.foodId.toString() === foodId);
+    if (itemIndex === -1) {
+      return res.status(404).json({ message: 'Item not found in cart' });
+    }
+
+    const food = await Food.findById(foodId);
+    cart.items.splice(itemIndex, 1);
+    await cart.save();
+
+    await logAction(
+      'Remove Cart Item',
+      'Cart',
+      cart._id,
+      `Removed ${food ? food.name : 'item'} from cart`,
+      req.user.userId
+    );
+
+    res.status(200).json({
+      message: 'Item removed from cart successfully',
+      cart
+    });
+  } catch (error) {
+    logger.error('Remove cart item error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+// Clear cart
+exports.clearCart = async (req, res) => {
+  console.log('Clear cart endpoint hit');
+  try {
+    const cart = await Cart.findOne({ userId: req.user.userId });
+    if (!cart) {
+      return res.status(200).json({
+        message: 'Cart is already empty',
+        cart: { userId: req.user.userId, items: [], totalAmount: 0 }
+      });
+    }
+
+    cart.items = [];
+    cart.totalAmount = 0;
+    await cart.save();
+
+    await logAction(
+      'Clear Cart',
+      'Cart',
+      cart._id,
+      'Cleared all items from cart',
+      req.user.userId
+    );
+
+    res.status(200).json({
+      message: 'Cart cleared successfully',
+      cart
+    });
+  } catch (error) {
+    logger.error('Clear cart error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+// Place order using cart
+exports.placeOrder = async (req, res) => {
+  console.log('Place order endpoint hit:', req.body);
+  const { deliveryAddressId, paymentMethod } = req.body;
+
+  try {
+    if (!paymentMethod) {
+      return res.status(400).json({ message: 'Payment method is required' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user || user.isDeleted) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    let deliveryAddress;
+    if (deliveryAddressId) {
+      if (!mongoose.isValidObjectId(deliveryAddressId)) {
+        return res.status(400).json({ message: 'Invalid delivery address ID' });
+      }
+      deliveryAddress = user.addresses.id(deliveryAddressId);
+      if (!deliveryAddress) {
+        return res.status(404).json({ message: 'Delivery address not found' });
+      }
+    } else {
+      return res.status(400).json({ message: 'Delivery address ID is required' });
+    }
+
+    const cart = await Cart.findOne({ userId: req.user.userId });
+    if (!cart || cart.items.length === 0) {
+      return res.status(400).json({ message: 'Cart is empty' });
+    }
+
+    const orderItems = [];
+    let totalAmount = 0;
+
+    for (const item of cart.items) {
+      const food = await Food.findById(item.foodId);
+      if (!food || !food.isAvailable) {
+        return res.status(400).json({ message: `Food item ${item.foodId} is not available` });
+      }
+      const itemTotal = food.price * item.quantity;
+      totalAmount += itemTotal;
+      orderItems.push({
+        productId: food._id,
+        quantity: item.quantity,
+        price: food.price
+      });
+    }
+
+    const orderId = `ORD-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+
+    const order = await Order.create({
+      orderId,
+      userId: req.user.userId,
+      items: orderItems,
+      totalAmount,
+      status: 'pending',
+      shipping: {
+        street: deliveryAddress.street,
+        city: deliveryAddress.city,
+        state: deliveryAddress.state,
+        postalCode: deliveryAddress.postalCode,
+        country: deliveryAddress.country
+      }
+    });
+
+    user.orders.push(order._id);
+    user.loyaltyPoints += Math.floor(totalAmount / 10);
+    await user.save();
+
+    // Clear cart after order placement
+    cart.items = [];
+    cart.totalAmount = 0;
+    await cart.save();
+
+    await logAction(
+      'Place Order',
+      'Order',
+      order._id,
+      `Placed order ${order.orderId} with total ${totalAmount}`,
+      req.user.userId
+    );
+
+    res.status(201).json({
+      message: 'Order placed successfully',
+      order: {
+        orderId: order.orderId,
+        totalAmount: order.totalAmount,
+        status: order.status,
+        items: order.items,
+        shipping: order.shipping,
+        createdAt: order.createdAt
+      }
+    });
+  } catch (error) {
+    logger.error('Place order error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+// Track order status
+exports.trackOrder = async (req, res) => {
+  console.log('Track order endpoint hit:', req.params);
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid order ID' });
+    }
+
+    const order = await Order.findOne({ _id: id, userId: req.user.userId })
+      .select('orderId status totalAmount shipping estimatedDeliveryTime createdAt items')
+      .populate('items.productId', 'name price image');
+
+    if (!order) {
+      return res.status(404).json({ message: 'Order not found' });
+    }
+
+    res.status(200).json({
+      message: 'Order tracking retrieved successfully',
+      order
+    });
+  } catch (error) {
+    logger.error('Track order error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Add food to favorites
+exports.addToFavorites = async (req, res) => {
+  console.log('Add to favorites endpoint hit:', req.body);
+  const { foodId } = req.body;
+
+  try {
+    if (!mongoose.isValidObjectId(foodId)) {
+      return res.status(400).json({ message: 'Invalid food ID' });
+    }
+
+    const food = await Food.findById(foodId);
+    if (!food || !food.isAvailable) {
+      return res.status(400).json({ message: 'Food item is not available' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user || user.isDeleted) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    if (user.favorites.includes(foodId)) {
+      return res.status(400).json({ message: 'Food already in favorites' });
+    }
+
+    user.favorites.push(foodId);
+    await user.save();
+
+    await logAction(
+      'Add to Favorites',
+      'User',
+      user._id,
+      `Added food ${food.name} to favorites`,
+      req.user.userId
+    );
+
+    res.status(200).json({
+      message: 'Food added to favorites successfully',
+      favorite: {
+        foodId: food._id,
+        name: food.name,
+        price: food.price,
+        image: food.image
+      }
+    });
+  } catch (error) {
+    logger.error('Add to favorites error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Remove food from favorites
+exports.removeFromFavorites = async (req, res) => {
+  console.log('Remove from favorites endpoint hit:', req.params);
+  const { foodId } = req.params;
+
+  try {
+    if (!mongoose.isValidObjectId(foodId)) {
+      return res.status(400).json({ message: 'Invalid food ID' });
+    }
+
+    const user = await User.findById(req.user.userId);
+    if (!user || user.isDeleted) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    const favoriteIndex = user.favorites.indexOf(foodId);
+    if (favoriteIndex === -1) {
+      return res.status(404).json({ message: 'Food not found in favorites' });
+    }
+
+    const food = await Food.findById(foodId);
+    user.favorites.splice(favoriteIndex, 1);
+    await user.save();
+
+    await logAction(
+      'Remove from Favorites',
+      'User',
+      user._id,
+      `Removed food ${food ? food.name : 'item'} from favorites`,
+      req.user.userId
+    );
+
+    res.status(200).json({
+      message: 'Food removed from favorites successfully'
+    });
+  } catch (error) {
+    logger.error('Remove from favorites error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get user favorites
+exports.getFavorites = async (req, res) => {
+  console.log('Get favorites endpoint hit');
+  try {
+    const user = await User.findById(req.user.userId)
+      .select('favorites')
+      .populate('favorites', 'name description category price image isAvailable');
+
+    if (!user || user.isDeleted) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    res.status(200).json({
+      message: 'Favorites retrieved successfully',
+      favorites: user.favorites
+    });
+  } catch (error) {
+    logger.error('Get favorites error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
