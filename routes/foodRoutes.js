@@ -15,6 +15,7 @@ const {
 } = require('../controllers/foodController');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
+const Food = require('../models/Food');
 
 // Public routes
 router.get('/', getAllFoods);
@@ -32,5 +33,16 @@ router.get('/orders/:id/track', authMiddleware, trackOrder);
 // Admin routes
 router.post('/', authMiddleware, adminMiddleware, addFood);
 router.put('/prices', authMiddleware, adminMiddleware, updatePricesByCategory);
+router.delete('/:id', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const food = await Food.findByIdAndDelete(req.params.id);
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+    res.json({ message: 'Food deleted' });
+  } catch (error) {
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+});
 
 module.exports = router;

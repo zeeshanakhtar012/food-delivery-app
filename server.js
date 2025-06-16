@@ -5,6 +5,7 @@ const morgan = require('morgan');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
+const cors = require('cors'); // Added cors
 const userRoutes = require('./routes/userRoutes');
 const foodRoutes = require('./routes/foodRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -29,14 +30,19 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: '*', // Update with your frontend URL in production
-    methods: ['GET', 'POST']
+    origin: 'http://localhost:3000', // Explicitly allow dashboard
+    methods: ['GET', 'POST'],
+    credentials: true
   }
 });
 
 const PORT = process.env.PORT || 5001;
 
 // Middleware
+app.use(cors({
+  origin: 'http://localhost:3000',
+  credentials: true
+})); // Added cors middleware
 app.use(express.json());
 app.use(morgan('dev'));
 
