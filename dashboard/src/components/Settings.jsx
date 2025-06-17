@@ -1,4 +1,5 @@
-const { useState, useEffect } = React;
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
 function Settings() {
   const [config, setConfig] = useState({

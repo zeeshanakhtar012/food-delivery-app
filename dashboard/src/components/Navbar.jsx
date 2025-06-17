@@ -1,4 +1,4 @@
-const { useContext } = React;
+import React, { useContext } from 'react';
 import AuthContext from '../context/AuthContext.jsx';
 
 function Navbar({ setSidebarOpen }) {

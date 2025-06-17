@@ -1,20 +1,26 @@
-const { createContext, useState, useEffect } = React;
-const { useNavigate } = ReactRouterDOM;
+import { createContext, useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
 const AuthContext = createContext();
 
-function AuthProvider({ children }) {
+export function AuthProvider({ children }) {
   const [user, setUser] = useState(null);
   const [token, setToken] = useState(localStorage.getItem('token') || null);
   const navigate = useNavigate();
 
   useEffect(() => {
     if (token) {
+      console.log('Fetching profile with token:', token);
       axios.get('http://localhost:5001/api/users/profile', {
         headers: { Authorization: `Bearer ${token}` }
       })
-        .then(res => setUser(res.data.user))
-        .catch(() => {
+        .then(res => {
+          console.log('Profile fetched:', res.data);
+          setUser(res.data.user);
+        })
+        .catch(error => {
+          console.error('Profile fetch error:', error.message);
           setToken(null);
           localStorage.removeItem('token');
           navigate('/login');
@@ -24,7 +30,9 @@ function AuthProvider({ children }) {
 
   const login = async (email, password) => {
     try {
+      console.log('Logging in with:', { email, password });
       const res = await axios.post('http://localhost:5001/api/users/login', { email, password });
+      console.log('Login response:', res.data);
       if (res.data.user.isAdmin) {
         setToken(res.data.token);
         setUser(res.data.user);
@@ -34,6 +42,7 @@ function AuthProvider({ children }) {
         throw new Error('Access denied: Admin only');
       }
     } catch (error) {
+      console.error('Login error:', error.message);
       throw new Error(error.response?.data?.message || error.message);
     }
   };
@@ -52,5 +61,4 @@ function AuthProvider({ children }) {
   );
 }
 
-export { AuthProvider };
 export default AuthContext;

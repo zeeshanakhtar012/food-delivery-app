@@ -5,7 +5,7 @@ const morgan = require('morgan');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
-const cors = require('cors'); // Added cors
+const cors = require('cors');
 const userRoutes = require('./routes/userRoutes');
 const foodRoutes = require('./routes/foodRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -30,8 +30,8 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:3000', // Explicitly allow dashboard
-    methods: ['GET', 'POST'],
+    origin: 'http://localhost:5173', // Update to match your frontend's origin
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true
   }
 });
@@ -40,9 +40,10 @@ const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:3000',
+  origin: 'http://localhost:5173', // Update to match your frontend's origin
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true
-})); // Added cors middleware
+}));
 app.use(express.json());
 app.use(morgan('dev'));
 
@@ -91,7 +92,7 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Sanitize content (basic example, consider using sanitize-html in production)
+      // Sanitize content
       const sanitizedContent = content.trim().substring(0, 1000);
 
       // Save message to database
