@@ -104,6 +104,7 @@ exports.getAllFoods = async (req, res) => {
 
 // Get food details by ID (public)
 exports.getFoodDetails = async (req, res) => {
+  console.log('getFoodDetails endpoint hit with id:', req.params.id, 'at', new Date());
   try {
     const { id } = req.params;
 
@@ -283,17 +284,22 @@ exports.addToCart = async (req, res) => {
 
 // Get cart
 exports.getCart = async (req, res) => {
-  console.log('Get cart endpoint hit');
+  console.log('getCart endpoint hit for user:', req.user?.userId, 'at', new Date());
+  if (!req.user || !req.user.userId) {
+    return res.status(401).json({ message: 'Unauthorized access' });
+  }
   try {
     const cart = await Cart.findOne({ userId: req.user.userId })
-      .populate('items.foodId', 'name description category price image');
+      .populate('items.foodId', 'name description category price image isAvailable');
     if (!cart) {
       return res.status(200).json({
         message: 'Cart is empty',
         cart: { userId: req.user.userId, items: [], totalAmount: 0 }
       });
     }
-
+    // Filter out invalid or unavailable items
+    cart.items = cart.items.filter(item => item.foodId && item.foodId.isAvailable);
+    await cart.save();
     res.status(200).json({
       message: 'Cart retrieved successfully',
       cart

@@ -1,6 +1,8 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 
+// Defines the User schema for the NOTENEST app, managing user data including authentication, addresses, and order-related features.
+
 const addressSchema = new mongoose.Schema({
   street: { type: String, required: true },
   city: { type: String, required: true },
@@ -63,10 +65,6 @@ const userSchema = new mongoose.Schema({
   profileImage: {
     type: String,
     default: "https://plus.unsplash.com/premium_photo-1740097670001-28363fa53ee3?q=80&w=2274&auto=format&fit=crop&ixlib=rb-4.1.0&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D"
-  },
-  isVerified: {
-    type: Boolean,
-    default: true
   },
   preferences: {
     dietary: [{ type: String, enum: ['vegetarian', 'vegan', 'gluten-free', 'non-vegetarian', 'other'] }],
