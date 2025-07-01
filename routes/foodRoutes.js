@@ -11,7 +11,7 @@ const {
   updateCartItem,
   removeCartItem,
   clearCart,
-  trackOrder
+  trackOrder,
 } = require('../controllers/foodController');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');

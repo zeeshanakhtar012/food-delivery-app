@@ -8,6 +8,8 @@ const Notification = require('../models/Notification');
 const Discount = require('../models/Discount');
 const AuditLog = require('../models/AuditLog');
 const winston = require('winston');
+const jwt = require('jsonwebtoken'); // Add this line
+const bcrypt = require('bcryptjs');
 
 // Configure Winston logger
 const logger = winston.createLogger({
@@ -50,6 +52,155 @@ const validateAppConfigInput = (data) => {
     errors.push('Splash screen URL must be a valid image URL');
   }
   return errors;
+};
+
+// Create admin user (no auth required)
+exports.createAdmin = async (req, res) => {
+  console.log('Create admin endpoint hit:', req.body);
+  const { name, email, password, phone } = req.body;
+
+  try {
+    // Validate input
+    if (!name || !email || !password || !phone) {
+      return res.status(400).json({ message: 'Name, email, password, and phone are required' });
+    }
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      return res.status(400).json({ message: 'Invalid email format' });
+    }
+    if (password.length < 8) {
+      return res.status(400).json({ message: 'Password must be at least 8 characters' });
+    }
+    if (!/^\+?[1-9]\d{1,14}$/.test(phone)) {
+      return res.status(400).json({ message: 'Invalid phone number format' });
+    }
+
+    // Check if email or phone already exists
+    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
+    if (existingUser) {
+      return res.status(400).json({
+        message: existingUser.email === email ? 'Email already exists' : 'Phone number already exists'
+      });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create new admin user
+    const adminUser = await User.create({
+      name,
+      email,
+      password: hashedPassword,
+      phone,
+      isAdmin: true
+    });
+
+    // Generate JWT token
+    const token = jwt.sign(
+      { userId: adminUser._id, isAdmin: adminUser.isAdmin },
+      process.env.JWT_SECRET || 'your_jwt_secret', // Use environment variable in production
+      { expiresIn: '7d' } // Token expires in 7 days
+    );
+
+    await logAdminAction(
+      'Create Admin',
+      'User',
+      adminUser._id,
+      `Created admin user: ${email}`,
+      adminUser._id
+    );
+
+    res.status(201).json({
+      message: 'Admin user created successfully',
+      user: {
+        _id: adminUser._id,
+        name: adminUser.name,
+        email: adminUser.email,
+        phone: adminUser.phone,
+        isAdmin: adminUser.isAdmin
+      },
+      token
+    });
+  } catch (error) {
+    logger.error('Create admin error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
+};
+
+
+// Update admin credentials
+exports.updateAdminCredentials = async (req, res) => {
+  console.log('Update admin credentials endpoint hit:', req.body);
+  const { id } = req.params;
+  const { name, email, password, phone } = req.body;
+
+  try {
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid user ID' });
+    }
+
+    const user = await User.findById(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    if (!user.isAdmin) {
+      return res.status(400).json({ message: 'User is not an admin' });
+    }
+
+    const updateData = {};
+    if (name) updateData.name = name;
+    if (email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format' });
+      }
+      const existingUser = await User.findOne({ email, _id: { $ne: id } });
+      if (existingUser) {
+        return res.status(400).json({ message: 'Email already exists' });
+      }
+      updateData.email = email;
+    }
+    if (password) {
+      if (password.length < 6) {
+        return res.status(400).json({ message: 'Password must be at least 6 characters' });
+      }
+      const salt = await bcrypt.genSalt(10);
+      updateData.password = await bcrypt.hash(password, salt);
+    }
+    if (phone) {
+      if (!/^\+?\d{10,14}$/.test(phone)) {
+        return res.status(400).json({ message: 'Invalid phone number format' });
+      }
+      updateData.phone = phone;
+    }
+
+    const updatedUser = await User.findByIdAndUpdate(
+      id,
+      { $set: updateData },
+      { new: true, runValidators: true }
+    );
+
+    await logAdminAction(
+      'Update Admin Credentials',
+      'User',
+      updatedUser._id,
+      `Updated admin credentials for: ${email || user.email}`,
+      req.user.userId
+    );
+
+    res.status(200).json({
+      message: 'Admin credentials updated successfully',
+      user: {
+        _id: updatedUser._id,
+        name: updatedUser.name,
+        email: updatedUser.email,
+        phone: updatedUser.phone,
+        isAdmin: updatedUser.isAdmin
+      }
+    });
+  } catch (error) {
+    logger.error('Update admin credentials error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred', error: error.message });
+  }
 };
 
 // Update app configuration
@@ -206,7 +357,7 @@ exports.updateAdvertisement = async (req, res) => {
       return res.status(400).json({ message: 'Invalid food ID' });
     }
     if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
-      return res.status(400).json({ message: 'End date must be after start date' });
+      return res.status(401).json({ message: 'End date must be after start date' });
     }
 
     const updateData = {

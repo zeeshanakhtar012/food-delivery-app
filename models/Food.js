@@ -16,21 +16,8 @@ const foodSchema = new mongoose.Schema({
     type: String,
     required: [true, 'Category is required'],
     enum: [
-      'Fast Food',
-      'Pizza',
-      'Burger',
-      'Desserts',
-      'Beverages',
-      'Salads',
-      'Pasta',
-      'Seafood',
-      'Vegetarian',
-      'Vegan',
-      'Grill',
-      'Breakfast',
-      'Asian',
-      'Italian',
-      'Mexican'
+      'Fast Food', 'Pizza', 'Burger', 'Desserts', 'Beverages', 'Salads', 'Pasta',
+      'Seafood', 'Vegetarian', 'Vegan', 'Grill', 'Breakfast', 'Asian', 'Italian', 'Mexican'
     ],
     default: 'Fast Food'
   },
@@ -67,6 +54,15 @@ const foodSchema = new mongoose.Schema({
   ratingCount: {
     type: Number,
     default: 0
+  },
+  restaurantId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Restaurant',
+    required: [true, 'Restaurant ID is required']
+  },
+  city: {
+    type: String,
+    required: [true, 'City is required']
   }
 }, {
   timestamps: true,

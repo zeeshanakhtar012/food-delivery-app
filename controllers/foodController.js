@@ -55,6 +55,12 @@ const validateAddFoodInput = (data) => {
     if (data.nutritionalInfo.fat < 0) errors.push('Fat cannot be negative');
     if (data.nutritionalInfo.carbohydrates < 0) errors.push('Carbohydrates cannot be negative');
   }
+  if (!data.restaurantId || !mongoose.isValidObjectId(data.restaurantId)) {
+    errors.push('Valid restaurant ID is required');
+  }
+  if (!data.city || data.city.trim().length === 0) {
+    errors.push('City is required');
+  }
   return errors;
 };
 
@@ -87,7 +93,7 @@ exports.getAllFoods = async (req, res) => {
     const sort = { [sortBy]: order === 'asc' ? 1 : -1 };
 
     const foods = await Food.find(query)
-      .select('name description category price image averageRating ratingCount preparationTime')
+      .select('name description category price image averageRating ratingCount preparationTime restaurantId city')
       .sort(sort)
       .limit(50);
 
@@ -141,7 +147,7 @@ exports.getFoodDetails = async (req, res) => {
 // Add food (admin only)
 exports.addFood = async (req, res) => {
   console.log('Add food endpoint hit:', req.body);
-  const { name, description, category, price, image, ingredients, nutritionalInfo, preparationTime, isAvailable } = req.body;
+  const { name, description, category, price, image, ingredients, nutritionalInfo, preparationTime, isAvailable, restaurantId, city } = req.body;
 
   try {
     const errors = validateAddFoodInput(req.body);
@@ -158,8 +164,18 @@ exports.addFood = async (req, res) => {
       ingredients: ingredients || [],
       nutritionalInfo: nutritionalInfo || { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
       preparationTime: preparationTime || 15,
-      isAvailable: isAvailable !== undefined ? isAvailable : true
+      isAvailable: isAvailable !== undefined ? isAvailable : true,
+      restaurantId,
+      city
     });
+
+    await logAction(
+      'Add Food',
+      'Food',
+      food._id,
+      `Added food ${food.name} for restaurant ${restaurantId} in city ${city}`,
+      req.user.userId
+    );
 
     res.status(201).json({
       message: 'Food added successfully',
@@ -174,6 +190,8 @@ exports.addFood = async (req, res) => {
         nutritionalInfo: food.nutritionalInfo,
         preparationTime: food.preparationTime,
         isAvailable: food.isAvailable,
+        restaurantId: food.restaurantId,
+        city: food.city,
         createdAt: food.createdAt
       }
     });
@@ -189,6 +207,7 @@ exports.updatePricesByCategory = async (req, res) => {
   const { category, priceAdjustment, adjustmentType } = req.body;
 
   try {
+    // Input validation
     if (!category || ![
       'Fast Food', 'Pizza', 'Burger', 'Desserts', 'Beverages', 'Salads', 'Pasta',
       'Seafood', 'Vegetarian', 'Vegan', 'Grill', 'Breakfast', 'Asian', 'Italian', 'Mexican'
@@ -202,10 +221,12 @@ exports.updatePricesByCategory = async (req, res) => {
       return res.status(400).json({ message: 'Adjustment type must be "fixed" or "percentage"' });
     }
 
+    // Define the update query based on adjustment type
     const updateQuery = adjustmentType === 'fixed'
-      ? { $set: { price: { $add: ['$price', priceAdjustment] } } }
-      : { $set: { price: { $mul: ['$price', 1 + priceAdjustment / 100] } } };
+      ? { $inc: { price: priceAdjustment } }
+      : { $mul: { price: 1 + priceAdjustment / 100 } };
 
+    // Perform the update
     const result = await Food.updateMany(
       { category, isAvailable: true },
       updateQuery,
@@ -439,11 +460,14 @@ exports.clearCart = async (req, res) => {
 // Place order using cart
 exports.placeOrder = async (req, res) => {
   console.log('Place order endpoint hit:', req.body);
-  const { deliveryAddressId, paymentMethod } = req.body;
+  const { deliveryAddressId, deliveryAddress, paymentMethod, items } = req.body;
 
   try {
     if (!paymentMethod) {
       return res.status(400).json({ message: 'Payment method is required' });
+    }
+    if (!items || !Array.isArray(items) || items.length === 0) {
+      return res.status(400).json({ message: 'Order items are required' });
     }
 
     const user = await User.findById(req.user.userId);
@@ -451,32 +475,44 @@ exports.placeOrder = async (req, res) => {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    let deliveryAddress;
+    let shippingAddress;
     if (deliveryAddressId) {
       if (!mongoose.isValidObjectId(deliveryAddressId)) {
         return res.status(400).json({ message: 'Invalid delivery address ID' });
       }
-      deliveryAddress = user.addresses.id(deliveryAddressId);
-      if (!deliveryAddress) {
+      shippingAddress = user.addresses.id(deliveryAddressId);
+      if (!shippingAddress) {
         return res.status(404).json({ message: 'Delivery address not found' });
       }
+    } else if (deliveryAddress) {
+      const { street, city, state, postalCode, country } = deliveryAddress;
+      if (!street || !city || !state || !postalCode || !country) {
+        return res.status(400).json({ message: 'All address fields are required' });
+      }
+      shippingAddress = { street, city, state, postalCode, country };
     } else {
-      return res.status(400).json({ message: 'Delivery address ID is required' });
-    }
-
-    const cart = await Cart.findOne({ userId: req.user.userId });
-    if (!cart || cart.items.length === 0) {
-      return res.status(400).json({ message: 'Cart is empty' });
+      return res.status(400).json({ message: 'Delivery address or address ID is required' });
     }
 
     const orderItems = [];
     let totalAmount = 0;
+    let restaurantId = null;
 
-    for (const item of cart.items) {
+    for (const item of items) {
       const food = await Food.findById(item.foodId);
       if (!food || !food.isAvailable) {
         return res.status(400).json({ message: `Food item ${item.foodId} is not available` });
       }
+      if (!item.quantity || item.quantity < 1) {
+        return res.status(400).json({ message: `Invalid quantity for food item ${item.foodId}` });
+      }
+      if (!food.restaurantId) {
+        return res.status(400).json({ message: `Restaurant ID not found for food item ${item.foodId}` });
+      }
+      if (restaurantId && restaurantId !== food.restaurantId.toString()) {
+        return res.status(400).json({ message: 'All items must be from the same restaurant' });
+      }
+      restaurantId = food.restaurantId;
       const itemTotal = food.price * item.quantity;
       totalAmount += itemTotal;
       orderItems.push({
@@ -491,16 +527,12 @@ exports.placeOrder = async (req, res) => {
     const order = await Order.create({
       orderId,
       userId: req.user.userId,
+      restaurantId,
+      city: shippingAddress.city,
       items: orderItems,
       totalAmount,
       status: 'pending',
-      shipping: {
-        street: deliveryAddress.street,
-        city: deliveryAddress.city,
-        state: deliveryAddress.state,
-        postalCode: deliveryAddress.postalCode,
-        country: deliveryAddress.country
-      }
+      shipping: shippingAddress
     });
 
     user.orders.push(order._id);
@@ -508,9 +540,12 @@ exports.placeOrder = async (req, res) => {
     await user.save();
 
     // Clear cart after order placement
-    cart.items = [];
-    cart.totalAmount = 0;
-    await cart.save();
+    const cart = await Cart.findOne({ userId: req.user.userId });
+    if (cart) {
+      cart.items = [];
+      cart.totalAmount = 0;
+      await cart.save();
+    }
 
     await logAction(
       'Place Order',

@@ -18,13 +18,21 @@ const {
   getAllDiscounts,
   updateDiscount,
   deleteDiscount,
-  getAuditLogs
+  getAuditLogs,
+  createAdmin,
+  updateAdminCredentials
 } = require('../controllers/adminController');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
-// All routes require admin access
+// Admin creation route (no auth required)
+router.post('/create-admin', createAdmin);
+
+// Apply auth and admin middleware to all other routes
 router.use(authMiddleware, adminMiddleware);
+
+// Admin credentials
+router.post('/users/:id/credentials', updateAdminCredentials);
 
 // App configuration
 router.post('/app-config', updateAppConfig);

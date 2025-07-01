@@ -33,13 +33,13 @@ const userSchema = new mongoose.Schema({
   password: {
     type: String,
     required: [true, 'Password is required'],
-    minlength: [8, 'Password must be at least 8 characters']
+    minlength: [6, 'Password must be at least 6 characters'] // Align with endpoint
   },
   phone: {
     type: String,
-    required: [true, 'Phone number is required'],
     unique: true,
-    match: [/^\+?[1-9]\d{1,14}$/, 'Please use a valid phone number']
+    match: [/^\+?[1-9]\d{1,14}$/, 'Please use a valid phone number'],
+    default: null // Make phone optional
   },
   dateOfBirth: {
     type: Date,
