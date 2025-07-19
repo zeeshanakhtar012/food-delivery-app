@@ -13,13 +13,9 @@ const foodSchema = new mongoose.Schema({
     maxlength: [500, 'Description cannot exceed 500 characters']
   },
   category: {
-    type: String,
-    required: [true, 'Category is required'],
-    enum: [
-      'Fast Food', 'Pizza', 'Burger', 'Desserts', 'Beverages', 'Salads', 'Pasta',
-      'Seafood', 'Vegetarian', 'Vegan', 'Grill', 'Breakfast', 'Asian', 'Italian', 'Mexican'
-    ],
-    default: 'Fast Food'
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Category',
+    required: [true, 'Category is required']
   },
   price: {
     type: Number,

@@ -16,6 +16,7 @@ const Discount = require('./models/Discount');
 const Order = require('./models/Order');
 const Product = require('./models/Product');
 const User = require('./models/User');
+const AppUser = require('./models/AppUser'); // Added AppUser
 const Food = require('./models/Food');
 const Comment = require('./models/Comment');
 const Rating = require('./models/Rating');
@@ -30,7 +31,7 @@ const app = express();
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173', // Update to match your frontend's origin
+    origin: 'http://localhost:5173',
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
     credentials: true
   }
@@ -40,7 +41,7 @@ const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173', // Update to match your frontend's origin
+  origin: 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true
 }));
@@ -48,9 +49,12 @@ app.use(express.json());
 app.use(morgan('dev'));
 
 // Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI)
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+})
   .then(() => console.log('✅ MongoDB connected'))
-  .catch((err) => console.error('❌ MongoDB connection error:', err));
+  .catch((err) => console.error('❌ MongoDB connection error:', err.message, err.stack));
 
 // Socket.IO authentication middleware
 io.use(async (socket, next) => {
@@ -61,21 +65,26 @@ io.use(async (socket, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await User.findById(decoded.userId).select('isAdmin isDeleted');
+    // Check AppUser for admin-related sockets, User for regular users
+    let user = await AppUser.findById(decoded.userId).select('isAdmin isDeleted role');
+    if (!user) {
+      user = await User.findById(decoded.userId).select('isAdmin isDeleted');
+    }
     if (!user || user.isDeleted) {
-      return next(new Error('Authentication error: User not found'));
+      return next(new Error('Authentication error: User not found or deactivated'));
     }
 
-    socket.user = { userId: decoded.userId, isAdmin: user.isAdmin };
+    socket.user = { userId: decoded.userId, isAdmin: user.isAdmin, role: user.role };
     next();
   } catch (error) {
+    console.error('Socket.IO auth error:', error.message, error.stack);
     next(new Error('Authentication error: Invalid token'));
   }
 });
 
 // Socket.IO connection handler
 io.on('connection', (socket) => {
-  console.log(`Socket connected: ${socket.id}, User: ${socket.user.userId}`);
+  console.log(`Socket connected: ${socket.id}, User: ${socket.user.userId}, Role: ${socket.user.role}`);
 
   // Join user-specific room
   socket.join(`user:${socket.user.userId}`);
@@ -124,6 +133,7 @@ io.on('connection', (socket) => {
         performedBy: socket.user.userId
       });
     } catch (error) {
+      console.error('Socket.IO support message error:', error.message, error.stack);
       socket.emit('error', { message: 'Failed to send message', error: error.message });
     }
   });
@@ -148,6 +158,12 @@ app.get('/', (req, res) => {
 // 404 Handler
 app.use((req, res, next) => {
   res.status(404).json({ message: 'Route not found' });
+});
+
+// Global error handler
+app.use((err, req, res, next) => {
+  console.error('Server error:', err.message, err.stack);
+  res.status(500).json({ message: 'Server error', error: err.message });
 });
 
 // Start server

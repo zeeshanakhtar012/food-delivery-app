@@ -1,956 +1,895 @@
+const bcrypt = require('bcryptjs');
+const jwt = require('jsonwebtoken');
 const mongoose = require('mongoose');
-const User = require('../models/User');
-const Food = require('../models/Food');
+const AppUser = require('../models/AppUser');
+const Restaurant = require('../models/Restaurant');
 const Order = require('../models/Order');
-const AppConfig = require('../models/AppConfig');
 const Advertisement = require('../models/Advertisement');
-const Notification = require('../models/Notification');
+const AppConfig = require('../models/AppConfig');
 const Discount = require('../models/Discount');
 const AuditLog = require('../models/AuditLog');
-const winston = require('winston');
-const jwt = require('jsonwebtoken'); // Add this line
-const bcrypt = require('bcryptjs');
 
-// Configure Winston logger
-const logger = winston.createLogger({
-  level: 'error',
-  format: winston.format.combine(
-    winston.format.timestamp(),
-    winston.format.json()
-  ),
-  transports: [new winston.transports.Console()]
-});
-
-// Log admin action
-const logAdminAction = async (action, entity, entityId, details, performedBy) => {
+// Create a Super Admin
+const createAdmin = async (req, res) => {
   try {
-    await AuditLog.create({
-      action,
-      entity,
-      entityId,
-      details,
-      performedBy
-    });
-  } catch (error) {
-    logger.error('Audit log error', { error: error.message, stack: error.stack });
-  }
-};
+    const { name, email, password, phone } = req.body;
 
-// Validate app config input
-const validateAppConfigInput = (data) => {
-  const errors = [];
-  if (data.primaryColor && !/^#[0-9A-F]{6}$/.test(data.primaryColor)) {
-    errors.push('Primary color must be a valid hex code');
-  }
-  if (data.secondaryColor && !/^#[0-9A-F]{6}$/.test(data.secondaryColor)) {
-    errors.push('Secondary color must be a valid hex code');
-  }
-  if (data.logoUrl && !/^https?:\/\/.*\.(png|jpg|jpeg|svg)$/.test(data.logoUrl)) {
-    errors.push('Logo URL must be a valid image URL');
-  }
-  if (data.splashScreenUrl && !/^https?:\/\/.*\.(png|jpg|jpeg)$/.test(data.splashScreenUrl)) {
-    errors.push('Splash screen URL must be a valid image URL');
-  }
-  return errors;
-};
-
-// Create admin user (no auth required)
-exports.createAdmin = async (req, res) => {
-  console.log('Create admin endpoint hit:', req.body);
-  const { name, email, password, phone } = req.body;
-
-  try {
     // Validate input
     if (!name || !email || !password || !phone) {
       return res.status(400).json({ message: 'Name, email, password, and phone are required' });
     }
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-      return res.status(400).json({ message: 'Invalid email format' });
-    }
-    if (password.length < 8) {
-      return res.status(400).json({ message: 'Password must be at least 8 characters' });
-    }
-    if (!/^\+?[1-9]\d{1,14}$/.test(phone)) {
-      return res.status(400).json({ message: 'Invalid phone number format' });
-    }
 
-    // Check if email or phone already exists
-    const existingUser = await User.findOne({ $or: [{ email }, { phone }] });
-    if (existingUser) {
-      return res.status(400).json({
-        message: existingUser.email === email ? 'Email already exists' : 'Phone number already exists'
-      });
+    // Check if super admin already exists
+    const existingAdmin = await AppUser.findOne({ email, role: 'super_admin' });
+    if (existingAdmin) {
+      return res.status(400).json({ message: 'Super admin already exists' });
     }
 
     // Hash password
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
-    // Create new admin user
-    const adminUser = await User.create({
+    // Create super admin
+    const superAdmin = new AppUser({
       name,
       email,
       password: hashedPassword,
       phone,
-      isAdmin: true
+      role: 'super_admin',
+      isAdmin: true,
+      isDeleted: false,
+      lastLogin: null,
+      profileImage: 'https://example.com/default-profile.png',
+      loyaltyPoints: 0,
+      addresses: [],
+      orders: [],
+      cancelledOrders: [],
+      favorites: [],
     });
 
-    // Generate JWT token
-    const token = jwt.sign(
-      { userId: adminUser._id, isAdmin: adminUser.isAdmin },
-      process.env.JWT_SECRET || 'your_jwt_secret', // Use environment variable in production
-      { expiresIn: '7d' } // Token expires in 7 days
-    );
+    await superAdmin.save();
 
-    await logAdminAction(
-      'Create Admin',
-      'User',
-      adminUser._id,
-      `Created admin user: ${email}`,
-      adminUser._id
-    );
-
-    res.status(201).json({
-      message: 'Admin user created successfully',
-      user: {
-        _id: adminUser._id,
-        name: adminUser.name,
-        email: adminUser.email,
-        phone: adminUser.phone,
-        isAdmin: adminUser.isAdmin
-      },
-      token
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'CREATE_SUPER_ADMIN',
+      entity: 'User',
+      entityId: superAdmin._id,
+      details: `Super admin created with email: ${email}`,
+      performedBy: superAdmin._id,
     });
+    await auditLog.save();
+
+    console.log(`Super admin created: ${email}`);
+    res.status(201).json({ message: 'Super admin created successfully' });
   } catch (error) {
-    logger.error('Create admin error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error creating super admin: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-
-// Update admin credentials
-exports.updateAdminCredentials = async (req, res) => {
-  console.log('Update admin credentials endpoint hit:', req.body);
-  const { id } = req.params;
-  const { name, email, password, phone } = req.body;
-
+// Login Super Admin
+const loginSuperAdmin = async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid user ID' });
+    const { email, password } = req.body;
+
+    // Validate input
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findById(id);
+    // Check MongoDB connection
+    if (mongoose.connection.readyState !== 1) {
+      console.error('MongoDB not connected');
+      return res.status(500).json({ message: 'Database not connected' });
+    }
+
+    // Find super admin
+    const user = await AppUser.findOne({ email, role: 'super_admin' });
     if (!user) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Check if account is deleted
+    if (user.isDeleted) {
+      return res.status(403).json({ message: 'Account is deactivated' });
+    }
+
+    // Verify password
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(401).json({ message: 'Invalid credentials' });
+    }
+
+    // Update lastLogin
+    user.lastLogin = new Date();
+    await user.save();
+
+    // Check JWT_SECRET
+    if (!process.env.JWT_SECRET) {
+      console.error('JWT_SECRET is not defined');
+      return res.status(500).json({ message: 'Server configuration error' });
+    }
+
+    // Generate JWT
+    const token = jwt.sign(
+      { userId: user._id, role: user.role, isAdmin: user.isAdmin },
+      process.env.JWT_SECRET,
+      { expiresIn: '1h' }
+    );
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'LOGIN_SUPER_ADMIN',
+      entity: 'User',
+      entityId: user._id,
+      details: `Super admin logged in with email: ${email}`,
+      performedBy: user._id,
+    });
+    await auditLog.save();
+
+    console.log(`Super admin logged in: ${email}`);
+    res.json({ token, message: 'Login successful' });
+  } catch (error) {
+    console.error('Error logging in super admin:', {
+      message: error.message,
+      stack: error.stack,
+      email: req.body.email
+    });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Create Restaurant Admin
+const createRestaurantAdmin = async (req, res) => {
+  try {
+    const { name, email, password, phone, restaurantId } = req.body;
+
+    // Validate input
+    if (!name || !email || !password || !phone || !restaurantId) {
+      return res.status(400).json({ message: 'Name, email, password, phone, and restaurantId are required' });
+    }
+
+    // Validate restaurant
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return res.status(404).json({ message: 'Restaurant not found' });
+    }
+
+    // Check if email or phone already exists
+    const existingUser = await AppUser.findOne({ $or: [{ email }, { phone }] });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Email or phone already in use' });
+    }
+
+    // Hash password
+    const salt = await bcrypt.genSalt(10);
+    const hashedPassword = await bcrypt.hash(password, salt);
+
+    // Create restaurant admin
+    const restaurantAdmin = new AppUser({
+      name,
+      email,
+      password: hashedPassword,
+      phone,
+      role: 'restaurant_admin',
+      restaurantId,
+      isAdmin: true,
+      isDeleted: false,
+      lastLogin: null,
+      profileImage: 'https://example.com/default-profile.png',
+      loyaltyPoints: 0,
+      addresses: [],
+      orders: [],
+      cancelledOrders: [],
+      favorites: [],
+    });
+
+    await restaurantAdmin.save();
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'CREATE_RESTAURANT_ADMIN',
+      entity: 'User',
+      entityId: restaurantAdmin._id,
+      details: `Restaurant admin created with email: ${email} for restaurant: ${restaurantId}`,
+      performedBy: req.user.userId,
+    });
+    await auditLog.save();
+
+    console.log(`Restaurant admin created: ${email}`);
+    res.status(201).json({ message: 'Restaurant admin created successfully' });
+  } catch (error) {
+    console.error(`Error creating restaurant admin: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update Admin Credentials
+const updateAdminCredentials = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { email, password, phone } = req.body;
+
+    // Find user
+    const user = await AppUser.findById(id);
+    if (!user || user.isDeleted) {
       return res.status(404).json({ message: 'User not found' });
     }
-    if (!user.isAdmin) {
-      return res.status(400).json({ message: 'User is not an admin' });
+
+    // Validate role
+    if (user.role !== 'super_admin' && user.role !== 'restaurant_admin') {
+      return res.status(403).json({ message: 'Can only update admin credentials' });
     }
 
-    const updateData = {};
-    if (name) updateData.name = name;
+    // Prepare updates
+    const updates = {};
     if (email) {
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        return res.status(400).json({ message: 'Invalid email format' });
+      const existingEmail = await AppUser.findOne({ email, _id: { $ne: id } });
+      if (existingEmail) {
+        return res.status(400).json({ message: 'Email already in use' });
       }
-      const existingUser = await User.findOne({ email, _id: { $ne: id } });
-      if (existingUser) {
-        return res.status(400).json({ message: 'Email already exists' });
-      }
-      updateData.email = email;
-    }
-    if (password) {
-      if (password.length < 6) {
-        return res.status(400).json({ message: 'Password must be at least 6 characters' });
-      }
-      const salt = await bcrypt.genSalt(10);
-      updateData.password = await bcrypt.hash(password, salt);
+      updates.email = email;
     }
     if (phone) {
-      if (!/^\+?\d{10,14}$/.test(phone)) {
-        return res.status(400).json({ message: 'Invalid phone number format' });
+      const existingPhone = await AppUser.findOne({ phone, _id: { $ne: id } });
+      if (existingPhone) {
+        return res.status(400).json({ message: 'Phone already in use' });
       }
-      updateData.phone = phone;
+      updates.phone = phone;
+    }
+    if (password) {
+      const salt = await bcrypt.genSalt(10);
+      updates.password = await bcrypt.hash(password, salt);
     }
 
-    const updatedUser = await User.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
+    // Update user
+    await AppUser.updateOne({ _id: id }, { $set: updates });
 
-    await logAdminAction(
-      'Update Admin Credentials',
-      'User',
-      updatedUser._id,
-      `Updated admin credentials for: ${email || user.email}`,
-      req.user.userId
-    );
-
-    res.status(200).json({
-      message: 'Admin credentials updated successfully',
-      user: {
-        _id: updatedUser._id,
-        name: updatedUser.name,
-        email: updatedUser.email,
-        phone: updatedUser.phone,
-        isAdmin: updatedUser.isAdmin
-      }
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'UPDATE_ADMIN_CREDENTIALS',
+      entity: 'User',
+      entityId: id,
+      details: `Updated credentials for admin with email: ${user.email}`,
+      performedBy: req.user.userId,
     });
+    await auditLog.save();
+
+    console.log(`Admin credentials updated for user: ${user.email}`);
+    res.json({ message: 'Admin credentials updated successfully' });
   } catch (error) {
-    logger.error('Update admin credentials error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error updating admin credentials: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Update app configuration
-exports.updateAppConfig = async (req, res) => {
-  console.log('Update app config endpoint hit:', req.body);
-  const { primaryColor, secondaryColor, logoUrl, splashScreenUrl, enableAds, enableNotifications } = req.body;
-
+// Toggle Restaurant Admin Status
+const toggleRestaurantAdminStatus = async (req, res) => {
   try {
-    const errors = validateAppConfigInput(req.body);
-    if (errors.length > 0) {
-      return res.status(400).json({ errors });
-    }
+    const { id } = req.params;
 
-    const updateData = {
-      primaryColor,
-      secondaryColor,
-      logoUrl,
-      splashScreenUrl,
-      enableAds: enableAds !== undefined ? enableAds : true,
-      enableNotifications: enableNotifications !== undefined ? enableNotifications : true,
-      lastUpdatedBy: req.user.userId
-    };
-
-    const config = await AppConfig.findOneAndUpdate(
-      {},
-      { $set: updateData },
-      { new: true, upsert: true, runValidators: true }
-    );
-
-    await logAdminAction(
-      'Update App Config',
-      'AppConfig',
-      config._id,
-      `Updated app configuration: ${JSON.stringify(updateData)}`,
-      req.user.userId
-    );
-
-    res.status(200).json({
-      message: 'App configuration updated successfully',
-      config
-    });
-  } catch (error) {
-    logger.error('Update app config error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Get app configuration
-exports.getAppConfig = async (req, res) => {
-  try {
-    const config = await AppConfig.findOne({});
-    if (!config) {
-      return res.status(404).json({ message: 'App configuration not found' });
-    }
-
-    res.status(200).json({
-      message: 'App configuration retrieved successfully',
-      config
-    });
-  } catch (error) {
-    logger.error('Get app config error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Create advertisement
-exports.createAdvertisement = async (req, res) => {
-  console.log('Create advertisement endpoint hit:', req.body);
-  const { title, description, imageUrl, foodId, targetUrl, startDate, endDate, isActive } = req.body;
-
-  try {
-    if (!title || !description || !imageUrl || !startDate || !endDate) {
-      return res.status(400).json({ message: 'Title, description, image URL, start date, and end date are required' });
-    }
-    if (!/^https?:\/\/.*\.(png|jpg|jpeg)$/.test(imageUrl)) {
-      return res.status(400).json({ message: 'Image URL must be a valid image URL' });
-    }
-    if (foodId && !mongoose.isValidObjectId(foodId)) {
-      return res.status(400).json({ message: 'Invalid food ID' });
-    }
-    if (new Date(endDate) <= new Date(startDate)) {
-      return res.status(400).json({ message: 'End date must be after start date' });
-    }
-
-    const ad = await Advertisement.create({
-      title,
-      description,
-      imageUrl,
-      foodId: foodId || null,
-      targetUrl: targetUrl || null,
-      startDate,
-      endDate,
-      isActive: isActive !== undefined ? isActive : true,
-      createdBy: req.user.userId
-    });
-
-    await logAdminAction(
-      'Create Advertisement',
-      'Advertisement',
-      ad._id,
-      `Created ad: ${title}`,
-      req.user.userId
-    );
-
-    res.status(201).json({
-      message: 'Advertisement created successfully',
-      advertisement: ad
-    });
-  } catch (error) {
-    logger.error('Create advertisement error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Get all advertisements
-exports.getAllAdvertisements = async (req, res) => {
-  try {
-    const { isActive, sortBy = 'createdAt', order = 'desc' } = req.query;
-    const query = {};
-    if (isActive !== undefined) query.isActive = isActive === 'true';
-
-    const sort = { [sortBy]: order === 'asc' ? 1 : -1 };
-
-    const ads = await Advertisement.find(query)
-      .populate('foodId', 'name price')
-      .sort(sort)
-      .limit(50);
-
-    res.status(200).json({
-      message: 'Advertisements retrieved successfully',
-      count: ads.length,
-      advertisements: ads
-    });
-  } catch (error) {
-    logger.error('Get advertisements error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Update advertisement
-exports.updateAdvertisement = async (req, res) => {
-  console.log('Update advertisement endpoint hit:', req.body);
-  const { id } = req.params;
-  const { title, description, imageUrl, foodId, targetUrl, startDate, endDate, isActive } = req.body;
-
-  try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid advertisement ID' });
-    }
-    if (imageUrl && !/^https?:\/\/.*\.(png|jpg|jpeg)$/.test(imageUrl)) {
-      return res.status(400).json({ message: 'Image URL must be a valid image URL' });
-    }
-    if (foodId && !mongoose.isValidObjectId(foodId)) {
-      return res.status(400).json({ message: 'Invalid food ID' });
-    }
-    if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
-      return res.status(401).json({ message: 'End date must be after start date' });
-    }
-
-    const updateData = {
-      title,
-      description,
-      imageUrl,
-      foodId: foodId || null,
-      targetUrl: targetUrl || null,
-      startDate,
-      endDate,
-      isActive,
-      createdBy: req.user.userId
-    };
-
-    const ad = await Advertisement.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
-    if (!ad) {
-      return res.status(404).json({ message: 'Advertisement not found' });
-    }
-
-    await logAdminAction(
-      'Update Advertisement',
-      'Advertisement',
-      ad._id,
-      `Updated ad: ${title}`,
-      req.user.userId
-    );
-
-    res.status(200).json({
-      message: 'Advertisement updated successfully',
-      advertisement: ad
-    });
-  } catch (error) {
-    logger.error('Update advertisement error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Delete advertisement
-exports.deleteAdvertisement = async (req, res) => {
-  console.log('Delete advertisement endpoint hit:', req.params);
-  const { id } = req.params;
-
-  try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid advertisement ID' });
-    }
-
-    const ad = await Advertisement.findByIdAndDelete(id);
-    if (!ad) {
-      return res.status(404).json({ message: 'Advertisement not found' });
-    }
-
-    await logAdminAction(
-      'Delete Advertisement',
-      'Advertisement',
-      ad._id,
-      `Deleted ad: ${ad.title}`,
-      req.user.userId
-    );
-
-    res.status(200).json({ message: 'Advertisement deleted successfully' });
-  } catch (error) {
-    logger.error('Delete advertisement error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Send push notification
-exports.sendPushNotification = async (req, res) => {
-  console.log('Send push notification endpoint hit:', req.body);
-  const { title, message, targetUsers, foodId } = req.body;
-
-  try {
-    if (!title || !message) {
-      return res.status(400).json({ message: 'Title and message are required' });
-    }
-    if (targetUsers && !Array.isArray(targetUsers)) {
-      return res.status(400).json({ message: 'Target users must be an array' });
-    }
-    if (foodId && !mongoose.isValidObjectId(foodId)) {
-      return res.status(400).json({ message: 'Invalid food ID' });
-    }
-
-    const notification = await Notification.create({
-      title,
-      message,
-      targetUsers: targetUsers || [],
-      foodId: foodId || null,
-      createdBy: req.user.userId
-    });
-
-    await logAdminAction(
-      'Send Notification',
-      'Notification',
-      notification._id,
-      `Sent notification: ${title}`,
-      req.user.userId
-    );
-
-    // Simulate sending push notification (integrate with Firebase/OneSignal in production)
-    console.log('Push notification sent:', { title, message, targetUsers: targetUsers || 'All users' });
-
-    res.status(200).json({
-      message: 'Notification sent successfully',
-      notification
-    });
-  } catch (error) {
-    logger.error('Send notification error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Get all users
-exports.getAllUsers = async (req, res) => {
-  try {
-    const { isDeleted, sortBy = 'createdAt', order = 'desc' } = req.query;
-    const query = {};
-    if (isDeleted !== undefined) query.isDeleted = isDeleted === 'true';
-
-    const sort = { [sortBy]: order === 'asc' ? 1 : -1 };
-
-    const users = await User.find(query)
-      .select('name email phone isAdmin isDeleted createdAt lastLogin')
-      .sort(sort)
-      .limit(50);
-
-    res.status(200).json({
-      message: 'Users retrieved successfully',
-      count: users.length,
-      users
-    });
-  } catch (error) {
-    logger.error('Get users error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Toggle user block status
-exports.toggleUserBlock = async (req, res) => {
-  console.log('Toggle user block endpoint hit:', req.params);
-  const { id } = req.params;
-
-  try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid user ID' });
-    }
-    if (id === req.user.userId.toString()) {
-      return res.status(400).json({ message: 'Cannot block yourself' });
-    }
-
-    const user = await User.findById(id);
-    if (!user) {
+    // Find user
+    const user = await AppUser.findById(id);
+    if (!user || user.isDeleted) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Validate role
+    if (user.role !== 'restaurant_admin') {
+      return res.status(403).json({ message: 'User is not a restaurant admin' });
+    }
+
+    // Toggle isDeleted status
     user.isDeleted = !user.isDeleted;
     user.deletedAt = user.isDeleted ? new Date() : null;
     await user.save();
 
-    await logAdminAction(
-      user.isDeleted ? 'Block User' : 'Unblock User',
-      'User',
-      user._id,
-      `User ${user.email} ${user.isDeleted ? 'blocked' : 'unblocked'}`,
-      req.user.userId
-    );
-
-    res.status(200).json({
-      message: `User ${user.isDeleted ? 'blocked' : 'unblocked'} successfully`,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        isDeleted: user.isDeleted
-      }
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: user.isDeleted ? 'DEACTIVATE_RESTAURANT_ADMIN' : 'ACTIVATE_RESTAURANT_ADMIN',
+      entity: 'User',
+      entityId: id,
+      details: `Restaurant admin ${user.isDeleted ? 'deactivated' : 'activated'} with email: ${user.email}`,
+      performedBy: req.user.userId,
     });
+    await auditLog.save();
+
+    console.log(`Restaurant admin ${user.isDeleted ? 'deactivated' : 'activated'}: ${user.email}`);
+    res.json({ message: `Restaurant admin ${user.isDeleted ? 'deactivated' : 'activated'} successfully` });
   } catch (error) {
-    logger.error('Toggle user block error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error toggling restaurant admin status: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Toggle admin status
-exports.toggleAdminStatus = async (req, res) => {
-  console.log('Toggle admin status endpoint hit:', req.params);
-  const { id } = req.params;
-
+// Update App Configuration
+const updateAppConfig = async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid user ID' });
-    }
-    if (id === req.user.userId.toString()) {
-      return res.status(400).json({ message: 'Cannot change your own admin status' });
+    const { primaryColor, secondaryColor, logoUrl, splashScreenUrl, enableAds, enableNotifications } = req.body;
+
+    // Validate input
+    if (!primaryColor && !secondaryColor && !logoUrl && !splashScreenUrl && enableAds === undefined && enableNotifications === undefined) {
+      return res.status(400).json({ message: 'At least one configuration field is required' });
     }
 
-    const user = await User.findById(id);
+    // Prepare updates
+    const updates = {};
+    if (primaryColor) updates.primaryColor = primaryColor;
+    if (secondaryColor) updates.secondaryColor = secondaryColor;
+    if (logoUrl) updates.logoUrl = logoUrl;
+    if (splashScreenUrl) updates.splashScreenUrl = splashScreenUrl;
+    if (enableAds !== undefined) updates.enableAds = enableAds;
+    if (enableNotifications !== undefined) updates.enableNotifications = enableNotifications;
+    updates.lastUpdatedBy = req.user.userId;
+
+    // Update or create config
+    const config = await AppConfig.findOneAndUpdate(
+      {},
+      { $set: updates },
+      { new: true, upsert: true }
+    );
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'UPDATE_APP_CONFIG',
+      entity: 'AppConfig',
+      entityId: config._id,
+      details: 'App configuration updated',
+      performedBy: req.user.userId,
+    });
+    await auditLog.save();
+
+    console.log('App configuration updated');
+    res.json({ message: 'App configuration updated successfully', config });
+  } catch (error) {
+    console.error(`Error updating app config: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get App Configuration
+const getAppConfig = async (req, res) => {
+  try {
+    const config = await AppConfig.findOne();
+    if (!config) {
+      return res.status(404).json({ message: 'App configuration not found' });
+    }
+
+    console.log('App configuration retrieved');
+    res.json(config);
+  } catch (error) {
+    console.error(`Error retrieving app config: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Create Advertisement
+const createAdvertisement = async (req, res) => {
+  try {
+    const { title, description, imageUrl, foodId, targetUrl, startDate, endDate } = req.body;
+
+    // Validate input
+    if (!title || !description || !imageUrl || !startDate || !endDate) {
+      return res.status(400).json({ message: 'Title, description, imageUrl, startDate, and endDate are required' });
+    }
+
+    // Create advertisement
+    const advertisement = new Advertisement({
+      title,
+      description,
+      imageUrl,
+      foodId: foodId || null,
+      targetUrl: targetUrl || null,
+      startDate,
+      endDate,
+      isActive: true,
+      createdBy: req.user.userId,
+    });
+
+    await advertisement.save();
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'CREATE_ADVERTISEMENT',
+      entity: 'Advertisement',
+      entityId: advertisement._id,
+      details: `Advertisement created with title: ${title}`,
+      performedBy: req.user.userId,
+    });
+    await auditLog.save();
+
+    console.log(`Advertisement created: ${title}`);
+    res.status(201).json({ message: 'Advertisement created successfully', advertisement });
+  } catch (error) {
+    console.error(`Error creating advertisement: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get All Advertisements
+const getAllAdvertisements = async (req, res) => {
+  try {
+    const advertisements = await Advertisement.find().populate('foodId createdBy');
+    console.log('Advertisements retrieved');
+    res.json(advertisements);
+  } catch (error) {
+    console.error(`Error retrieving advertisements: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update Advertisement
+const updateAdvertisement = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { title, description, imageUrl, foodId, targetUrl, startDate, endDate, isActive } = req.body;
+
+    // Find advertisement
+    const advertisement = await Advertisement.findById(id);
+    if (!advertisement) {
+      return res.status(404).json({ message: 'Advertisement not found' });
+    }
+
+    // Prepare updates
+    const updates = {};
+    if (title) updates.title = title;
+    if (description) updates.description = description;
+    if (imageUrl) updates.imageUrl = imageUrl;
+    if (foodId !== undefined) updates.foodId = foodId || null;
+    if (targetUrl !== undefined) updates.targetUrl = targetUrl || null;
+    if (startDate) updates.startDate = startDate;
+    if (endDate) updates.endDate = endDate;
+    if (isActive !== undefined) updates.isActive = isActive;
+
+    // Update advertisement
+    await Advertisement.updateOne({ _id: id }, { $set: updates });
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'UPDATE_ADVERTISEMENT',
+      entity: 'Advertisement',
+      entityId: id,
+      details: `Advertisement updated with title: ${title || advertisement.title}`,
+      performedBy: req.user.userId,
+    });
+    await auditLog.save();
+
+    console.log(`Advertisement updated: ${title || advertisement.title}`);
+    res.json({ message: 'Advertisement updated successfully' });
+  } catch (error) {
+    console.error(`Error updating advertisement: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Delete Advertisement
+const deleteAdvertisement = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find and delete advertisement
+    const advertisement = await Advertisement.findById(id);
+    if (!advertisement) {
+      return res.status(404).json({ message: 'Advertisement not found' });
+    }
+
+    await Advertisement.deleteOne({ _id: id });
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'DELETE_ADVERTISEMENT',
+      entity: 'Advertisement',
+      entityId: id,
+      details: `Advertisement deleted with title: ${advertisement.title}`,
+      performedBy: req.user.userId,
+    });
+    await auditLog.save();
+
+    console.log(`Advertisement deleted: ${advertisement.title}`);
+    res.json({ message: 'Advertisement deleted successfully' });
+  } catch (error) {
+    console.error(`Error deleting advertisement: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Send Push Notification (Placeholder - requires actual implementation)
+const sendPushNotification = async (req, res) => {
+  try {
+    const { title, message, userIds } = req.body;
+
+    // Validate input
+    if (!title || !message) {
+      return res.status(400).json({ message: 'Title and message are required' });
+    }
+
+    // Placeholder: Implement actual push notification logic (e.g., using Firebase, OneSignal)
+    console.log(`Sending push notification: ${title} - ${message} to users: ${userIds || 'all'}`);
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'SEND_NOTIFICATION',
+      entity: 'Notification',
+      details: `Push notification sent: ${title}`,
+      performedBy: req.user.userId,
+    });
+    await auditLog.save();
+
+    res.json({ message: 'Push notification sent successfully' });
+  } catch (error) {
+    console.error(`Error sending push notification: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Get All Users
+const getAllUsers = async (req, res) => {
+  try {
+    const users = await AppUser.find({ isDeleted: false }).select('-password');
+    console.log('Users retrieved');
+    res.json(users);
+  } catch (error) {
+    console.error(`Error retrieving users: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Toggle User Block
+const toggleUserBlock = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    // Find user
+    const user = await AppUser.findById(id);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    user.isAdmin = !user.isAdmin;
+    // Prevent blocking super admins
+    if (user.role === 'super_admin') {
+      return res.status(403).json({ message: 'Cannot block super admin' });
+    }
+
+    // Toggle isDeleted status
+    user.isDeleted = !user.isDeleted;
+    user.deletedAt = user.isDeleted ? new Date() : null;
     await user.save();
 
-    await logAdminAction(
-      user.isAdmin ? 'Grant Admin' : 'Revoke Admin',
-      'User',
-      user._id,
-      `User ${user.email} ${user.isAdmin ? 'granted' : 'revoked'} admin status`,
-      req.user.userId
-    );
-
-    res.status(200).json({
-      message: `User ${user.isAdmin ? 'granted' : 'revoked'} admin status successfully`,
-      user: {
-        _id: user._id,
-        name: user.name,
-        email: user.email,
-        isAdmin: user.isAdmin
-      }
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: user.isDeleted ? 'BLOCK_USER' : 'UNBLOCK_USER',
+      entity: 'User',
+      entityId: id,
+      details: `User ${user.isDeleted ? 'blocked' : 'unblocked'} with email: ${user.email}`,
+      performedBy: req.user.userId,
     });
+    await auditLog.save();
+
+    console.log(`User ${user.isDeleted ? 'blocked' : 'unblocked'}: ${user.email}`);
+    res.json({ message: `User ${user.isDeleted ? 'blocked' : 'unblocked'} successfully` });
   } catch (error) {
-    logger.error('Toggle admin status error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error toggling user block: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Get all orders
-exports.getAllOrders = async (req, res) => {
+// Toggle Admin Status
+const toggleAdminStatus = async (req, res) => {
   try {
-    const { status, sortBy = 'createdAt', order = 'desc' } = req.query;
-    const query = {};
-    if (status) query.status = status;
+    const { id } = req.params;
 
-    const sort = { [sortBy]: order === 'asc' ? 1 : -1 };
+    // Find user
+    const user = await AppUser.findById(id);
+    if (!user || user.isDeleted) {
+      return res.status(404).json({ message: 'User not found' });
+    }
 
-    const orders = await Order.find(query)
-      .populate('userId', 'name email')
-      .populate('items.productId', 'name price')
-      .sort(sort)
-      .limit(50);
+    // Prevent modifying super admin
+    if (user.role === 'super_admin') {
+      return res.status(403).json({ message: 'Cannot modify super admin status' });
+    }
 
-    res.status(200).json({
-      message: 'Orders retrieved successfully',
-      count: orders.length,
-      orders
+    // Toggle isAdmin status
+    user.isAdmin = !user.isAdmin;
+    user.role = user.isAdmin ? 'restaurant_admin' : 'user';
+    if (user.role === 'user') {
+      user.restaurantId = null; // Clear restaurantId if demoted to user
+    }
+    await user.save();
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: user.isAdmin ? 'PROMOTE_TO_ADMIN' : 'DEMOTE_FROM_ADMIN',
+      entity: 'User',
+      entityId: id,
+      details: `User ${user.isAdmin ? 'promoted to admin' : 'demoted from admin'} with email: ${user.email}`,
+      performedBy: req.user.userId,
     });
+    await auditLog.save();
+
+    console.log(`User ${user.isAdmin ? 'promoted to admin' : 'demoted from admin'}: ${user.email}`);
+    res.json({ message: `User ${user.isAdmin ? 'promoted to admin' : 'demoted from admin'} successfully` });
   } catch (error) {
-    logger.error('Get orders error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error toggling admin status: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Update order status
-exports.updateOrderStatus = async (req, res) => {
-  console.log('Update order status endpoint hit:', req.body);
-  const { id } = req.params;
-  const { status, reason } = req.body;
-
+// Get All Orders
+const getAllOrders = async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid order ID' });
-    }
-    if (!status || !['pending', 'processing', 'shipped', 'delivered', 'cancelled'].includes(status)) {
-      return res.status(400).json({ message: 'Invalid status' });
-    }
-    if (status === 'cancelled' && !reason) {
-      return res.status(400).json({ message: 'Reason is required for cancellation' });
+    const orders = await Order.find().populate('userId restaurantId items.productId');
+    console.log('Orders retrieved');
+    res.json(orders);
+  } catch (error) {
+    console.error(`Error retrieving orders: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Update Order Status
+const updateOrderStatus = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { status, reason } = req.body;
+
+    // Validate input
+    if (!status) {
+      return res.status(400).json({ message: 'Status is required' });
     }
 
+    // Find order
     const order = await Order.findById(id);
     if (!order) {
       return res.status(404).json({ message: 'Order not found' });
     }
 
+    // Validate status
+    const validStatuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled'];
+    if (!validStatuses.includes(status)) {
+      return res.status(400).json({ message: 'Invalid status' });
+    }
+
+    // Update order
     order.status = status;
-    if (status === 'cancelled') order.reason = reason;
+    if (reason && status === 'cancelled') {
+      order.reason = reason;
+    }
     await order.save();
 
-    if (status === 'cancelled') {
-      const user = await User.findById(order.userId);
-      if (user) {
-        user.orders.pull(order._id);
-        user.cancelledOrders.push(order._id);
-        await user.save();
-      }
-    }
-
-    await logAdminAction(
-      'Update Order Status',
-      'Order',
-      order._id,
-      `Updated order ${order.orderId} to status: ${status}`,
-      req.user.userId
-    );
-
-    res.status(200).json({
-      message: 'Order status updated successfully',
-      order
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'UPDATE_ORDER_STATUS',
+      entity: 'Order',
+      entityId: id,
+      details: `Order status updated to ${status} for order: ${order.orderId}`,
+      performedBy: req.user.userId,
     });
+    await auditLog.save();
+
+    console.log(`Order status updated to ${status} for order: ${order.orderId}`);
+    res.json({ message: 'Order status updated successfully' });
   } catch (error) {
-    logger.error('Update order status error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error updating order status: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Get dashboard analytics
-exports.getDashboardAnalytics = async (req, res) => {
+// Get Dashboard Analytics
+const getDashboardAnalytics = async (req, res) => {
   try {
-    const startDate = new Date();
-    startDate.setMonth(startDate.getMonth() - 6); // Last 6 months
-
-    const [userStats, orderStats, revenueStats, topFoods] = await Promise.all([
-      User.aggregate([
-        {
-          $group: {
-            _id: null,
-            totalUsers: { $sum: 1 },
-            activeUsers: { $sum: { $cond: [{ $eq: ['$isDeleted', false] }, 1, 0] } },
-            adminUsers: { $sum: { $cond: [{ $eq: ['$isAdmin', true] }, 1, 0] } }
-          }
-        }
-      ]),
-      Order.aggregate([
-        { $match: { createdAt: { $gte: startDate } } },
-        {
-          $group: {
-            _id: null,
-            totalOrders: { $sum: 1 },
-            pendingOrders: { $sum: { $cond: [{ $eq: ['$status', 'pending'] }, 1, 0] } },
-            deliveredOrders: { $sum: { $cond: [{ $eq: ['$status', 'delivered'] }, 1, 0] } },
-            cancelledOrders: { $sum: { $cond: [{ $eq: ['$status', 'cancelled'] }, 1, 0] } }
-          }
-        }
-      ]),
-      Order.aggregate([
-        { $match: { createdAt: { $gte: startDate }, status: 'delivered' } },
-        {
-          $group: {
-            _id: null,
-            totalRevenue: { $sum: '$totalAmount' },
-            averageOrderValue: { $avg: '$totalAmount' }
-          }
-        }
-      ]),
-      Order.aggregate([
-        { $match: { createdAt: { $gte: startDate } } },
-        { $unwind: '$items' },
-        {
-          $group: {
-            _id: '$items.productId',
-            totalSold: { $sum: '$items.quantity' }
-          }
-        },
-        { $sort: { totalSold: -1 } },
-        { $limit: 5 },
-        {
-          $lookup: {
-            from: 'foods',
-            localField: '_id',
-            foreignField: '_id',
-            as: 'food'
-          }
-        },
-        { $unwind: '$food' },
-        {
-          $project: {
-            name: '$food.name',
-            category: '$food.category',
-            totalSold: 1
-          }
-        }
-      ])
+    const totalUsers = await AppUser.countDocuments({ isDeleted: false });
+    const totalOrders = await Order.countDocuments();
+    const totalRestaurants = await Restaurant.countDocuments({ isActive: true });
+    const totalRevenue = await Order.aggregate([
+      { $match: { status: 'delivered' } },
+      { $group: { _id: null, total: { $sum: '$totalAmount' } } },
     ]);
 
-    res.status(200).json({
-      message: 'Analytics retrieved successfully',
-      analytics: {
-        users: userStats[0] || { totalUsers: 0, activeUsers: 0, adminUsers: 0 },
-        orders: orderStats[0] || { totalOrders: 0, pendingOrders: 0, deliveredOrders: 0, cancelledOrders: 0 },
-        revenue: revenueStats[0] || { totalRevenue: 0, averageOrderValue: 0 },
-        topFoods
-      }
-    });
+    const analytics = {
+      totalUsers,
+      totalOrders,
+      totalRestaurants,
+      totalRevenue: totalRevenue[0]?.total || 0,
+    };
+
+    console.log('Dashboard analytics retrieved');
+    res.json(analytics);
   } catch (error) {
-    logger.error('Get analytics error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error retrieving analytics: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Create discount
-exports.createDiscount = async (req, res) => {
-  console.log('Create discount endpoint hit:', req.body);
-  const { code, description, discountType, value, minOrderAmount, maxDiscountAmount, startDate, endDate, isActive } = req.body;
-
+// Create Discount
+const createDiscount = async (req, res) => {
   try {
+    const { code, description, discountType, value, minOrderAmount, maxDiscountAmount, startDate, endDate } = req.body;
+
+    // Validate input
     if (!code || !discountType || !value || !startDate || !endDate) {
-      return res.status(400).json({ message: 'Code, discount type, value, start date, and end date are required' });
+      return res.status(400).json({ message: 'Code, discountType, value, startDate, and endDate are required' });
     }
+
+    // Validate discountType
     if (!['percentage', 'fixed'].includes(discountType)) {
       return res.status(400).json({ message: 'Invalid discount type' });
     }
-    if (value <= 0) {
-      return res.status(400).json({ message: 'Value must be positive' });
-    }
-    if (minOrderAmount && minOrderAmount < 0) {
-      return res.status(400).json({ message: 'Minimum order amount cannot be negative' });
-    }
-    if (maxDiscountAmount && maxDiscountAmount < 0) {
-      return res.status(400).json({ message: 'Maximum discount amount cannot be negative' });
-    }
-    if (new Date(endDate) <= new Date(startDate)) {
-      return res.status(400).json({ message: 'End date must be after start date' });
+
+    // Check if code exists
+    const existingDiscount = await Discount.findOne({ code });
+    if (existingDiscount) {
+      return res.status(400).json({ message: 'Discount code already exists' });
     }
 
-    const discount = await Discount.create({
-      code: code.toUpperCase(),
-      description,
+    // Create discount
+    const discount = new Discount({
+      code,
+      description: description || '',
       discountType,
       value,
       minOrderAmount: minOrderAmount || 0,
       maxDiscountAmount: maxDiscountAmount || null,
       startDate,
       endDate,
-      isActive: isActive !== undefined ? isActive : true,
-      createdBy: req.user.userId
+      isActive: true,
+      createdBy: req.user.userId,
     });
 
-    await logAdminAction(
-      'Create Discount',
-      'Discount',
-      discount._id,
-      `Created discount: ${code}`,
-      req.user.userId
-    );
+    await discount.save();
 
-    res.status(201).json({
-      message: 'Discount created successfully',
-      discount
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'CREATE_DISCOUNT',
+      entity: 'Discount',
+      entityId: discount._id,
+      details: `Discount created with code: ${code}`,
+      performedBy: req.user.userId,
     });
+    await auditLog.save();
+
+    console.log(`Discount created: ${code}`);
+    res.status(201).json({ message: 'Discount created successfully', discount });
   } catch (error) {
-    logger.error('Create discount error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error creating discount: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Get all discounts
-exports.getAllDiscounts = async (req, res) => {
+// Get All Discounts
+const getAllDiscounts = async (req, res) => {
   try {
-    const { isActive, sortBy = 'createdAt', order = 'desc' } = req.query;
-    const query = {};
-    if (isActive !== undefined) query.isActive = isActive === 'true';
-
-    const sort = { [sortBy]: order === 'asc' ? 1 : -1 };
-
-    const discounts = await Discount.find(query)
-      .sort(sort)
-      .limit(50);
-
-    res.status(200).json({
-      message: 'Discounts retrieved successfully',
-      count: discounts.length,
-      discounts
-    });
+    const discounts = await Discount.find().populate('createdBy');
+    console.log('Discounts retrieved');
+    res.json(discounts);
   } catch (error) {
-    logger.error('Get discounts error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error retrieving discounts: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Update discount
-exports.updateDiscount = async (req, res) => {
-  console.log('Update discount endpoint hit:', req.body);
-  const { id } = req.params;
-  const { code, description, discountType, value, minOrderAmount, maxDiscountAmount, startDate, endDate, isActive } = req.body;
-
+// Update Discount
+const updateDiscount = async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid discount ID' });
-    }
-    if (discountType && !['percentage', 'fixed'].includes(discountType)) {
-      return res.status(400).json({ message: 'Invalid discount type' });
-    }
-    if (value && value <= 0) {
-      return res.status(400).json({ message: 'Value must be positive' });
-    }
-    if (minOrderAmount && minOrderAmount < 0) {
-      return res.status(400).json({ message: 'Minimum order amount cannot be negative' });
-    }
-    if (maxDiscountAmount && maxDiscountAmount < 0) {
-      return res.status(400).json({ message: 'Maximum discount amount cannot be negative' });
-    }
-    if (startDate && endDate && new Date(endDate) <= new Date(startDate)) {
-      return res.status(400).json({ message: 'End date must be after start date' });
-    }
+    const { id } = req.params;
+    const { code, description, discountType, value, minOrderAmount, maxDiscountAmount, startDate, endDate, isActive } = req.body;
 
-    const updateData = {
-      code: code ? code.toUpperCase() : undefined,
-      description,
-      discountType,
-      value,
-      minOrderAmount,
-      maxDiscountAmount,
-      startDate,
-      endDate,
-      isActive,
-      createdBy: req.user.userId
-    };
-
-    const discount = await Discount.findByIdAndUpdate(
-      id,
-      { $set: updateData },
-      { new: true, runValidators: true }
-    );
-
+    // Find discount
+    const discount = await Discount.findById(id);
     if (!discount) {
       return res.status(404).json({ message: 'Discount not found' });
     }
 
-    await logAdminAction(
-      'Update Discount',
-      'Discount',
-      discount._id,
-      `Updated discount: ${discount.code}`,
-      req.user.userId
-    );
+    // Prepare updates
+    const updates = {};
+    if (code) {
+      const existingCode = await Discount.findOne({ code, _id: { $ne: id } });
+      if (existingCode) {
+        return res.status(400).json({ message: 'Discount code already in use' });
+      }
+      updates.code = code;
+    }
+    if (description) updates.description = description;
+    if (discountType) {
+      if (!['percentage', 'fixed'].includes(discountType)) {
+        return res.status(400).json({ message: 'Invalid discount type' });
+      }
+      updates.discountType = discountType;
+    }
+    if (value !== undefined) updates.value = value;
+    if (minOrderAmount !== undefined) updates.minOrderAmount = minOrderAmount;
+    if (maxDiscountAmount !== undefined) updates.maxDiscountAmount = maxDiscountAmount;
+    if (startDate) updates.startDate = startDate;
+    if (endDate) updates.endDate = endDate;
+    if (isActive !== undefined) updates.isActive = isActive;
 
-    res.status(200).json({
-      message: 'Discount updated successfully',
-      discount
+    // Update discount
+    await Discount.updateOne({ _id: id }, { $set: updates });
+
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'UPDATE_DISCOUNT',
+      entity: 'Discount',
+      entityId: id,
+      details: `Discount updated with code: ${code || discount.code}`,
+      performedBy: req.user.userId,
     });
+    await auditLog.save();
+
+    console.log(`Discount updated: ${code || discount.code}`);
+    res.json({ message: 'Discount updated successfully' });
   } catch (error) {
-    logger.error('Update discount error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error updating discount: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Delete discount
-exports.deleteDiscount = async (req, res) => {
-  console.log('Delete discount endpoint hit:', req.params);
-  const { id } = req.params;
-
+// Delete Discount
+const deleteDiscount = async (req, res) => {
   try {
-    if (!mongoose.isValidObjectId(id)) {
-      return res.status(400).json({ message: 'Invalid discount ID' });
-    }
+    const { id } = req.params;
 
-    const discount = await Discount.findByIdAndDelete(id);
+    // Find and delete discount
+    const discount = await Discount.findById(id);
     if (!discount) {
       return res.status(404).json({ message: 'Discount not found' });
     }
 
-    await logAdminAction(
-      'Delete Discount',
-      'Discount',
-      discount._id,
-      `Deleted discount: ${discount.code}`,
-      req.user.userId
-    );
+    await Discount.deleteOne({ _id: id });
 
-    res.status(200).json({ message: 'Discount deleted successfully' });
+    // Log audit action
+    const auditLog = new AuditLog({
+      action: 'DELETE_DISCOUNT',
+      entity: 'Discount',
+      entityId: id,
+      details: `Discount deleted with code: ${discount.code}`,
+      performedBy: req.user.userId,
+    });
+    await auditLog.save();
+
+    console.log(`Discount deleted: ${discount.code}`);
+    res.json({ message: 'Discount deleted successfully' });
   } catch (error) {
-    logger.error('Delete discount error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error deleting discount: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Get audit logs
-exports.getAuditLogs = async (req, res) => {
+// Get Audit Logs
+const getAuditLogs = async (req, res) => {
   try {
-    const { action, entity, sortBy = 'createdAt', order = 'desc' } = req.query;
-    const query = {};
-    if (action) query.action = action;
-    if (entity) query.entity = entity;
-
-    const sort = { [sortBy]: order === 'asc' ? 1 : -1 };
-
-    const logs = await AuditLog.find(query)
-      .populate('performedBy', 'name email')
-      .sort(sort)
-      .limit(50);
-
-    res.status(200).json({
-      message: 'Audit logs retrieved successfully',
-      count: logs.length,
-      logs
-    });
+    const auditLogs = await AuditLog.find().populate('performedBy').sort({ createdAt: -1 });
+    console.log('Audit logs retrieved');
+    res.json(auditLogs);
   } catch (error) {
-    logger.error('Get audit logs error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
+    console.error(`Error retrieving audit logs: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
   }
+};
+
+// Export all controller functions
+module.exports = {
+  createAdmin,
+  loginSuperAdmin,
+  createRestaurantAdmin,
+  updateAdminCredentials,
+  toggleRestaurantAdminStatus,
+  updateAppConfig,
+  getAppConfig,
+  createAdvertisement,
+  getAllAdvertisements,
+  updateAdvertisement,
+  deleteAdvertisement,
+  sendPushNotification,
+  getAllUsers,
+  toggleUserBlock,
+  toggleAdminStatus,
+  getAllOrders,
+  updateOrderStatus,
+  getDashboardAnalytics,
+  createDiscount,
+  getAllDiscounts,
+  updateDiscount,
+  deleteDiscount,
+  getAuditLogs,
 };

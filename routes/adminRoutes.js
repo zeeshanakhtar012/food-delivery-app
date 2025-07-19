@@ -1,6 +1,12 @@
 const express = require('express');
 const router = express.Router();
+const adminController = require('../controllers/adminController');
 const {
+  createAdmin,
+  loginSuperAdmin,
+  createRestaurantAdmin,
+  updateAdminCredentials,
+  toggleRestaurantAdminStatus,
   updateAppConfig,
   getAppConfig,
   createAdvertisement,
@@ -19,53 +25,46 @@ const {
   updateDiscount,
   deleteDiscount,
   getAuditLogs,
-  createAdmin,
-  updateAdminCredentials
-} = require('../controllers/adminController');
+} = adminController;
 const authMiddleware = require('../middleware/authMiddleware');
-const adminMiddleware = require('../middleware/adminMiddleware');
 
-// Admin creation route (no auth required)
+// SuperAdmin creation (no auth required)
 router.post('/create-admin', createAdmin);
 
-// Apply auth and admin middleware to all other routes
-router.use(authMiddleware, adminMiddleware);
+// SuperAdmin login (no auth required)
+router.post('/login-super-admin', loginSuperAdmin);
 
-// Admin credentials
-router.post('/users/:id/credentials', updateAdminCredentials);
+// Apply auth middleware to all routes below
+router.use(authMiddleware);
 
-// App configuration
-router.post('/app-config', updateAppConfig);
-router.get('/app-config', getAppConfig);
+// SuperAdmin routes
+router.use((req, res, next) => {
+  if (req.user.role !== 'super_admin') {
+    return res.status(403).json({ message: 'SuperAdmin access required' });
+  }
+  next();
+});
 
-// Advertisements
-router.post('/advertisements', createAdvertisement);
-router.get('/advertisements', getAllAdvertisements);
-router.post('/advertisements/:id', updateAdvertisement);
-router.delete('/advertisements/:id', deleteAdvertisement);
-
-// Notifications
-router.post('/notifications', sendPushNotification);
-
-// Users
-router.get('/users', getAllUsers);
-router.post('/users/:id/block', toggleUserBlock);
-router.post('/users/:id/admin', toggleAdminStatus);
-
-// Orders
-router.get('/orders', getAllOrders);
-router.post('/orders/:id/status', updateOrderStatus);
-
-// Analytics
-router.get('/analytics', getDashboardAnalytics);
-
-// Discounts
-router.post('/discounts', createDiscount);
-router.get('/discounts', getAllDiscounts);
-router.post('/discounts/:id', updateDiscount);
-router.delete('/discounts/:id', deleteDiscount);
-
-// Audit logs
-router.get('/audit-logs', getAuditLogs);
+router.post('/admin/restaurant-admins', createRestaurantAdmin);
+router.post('/admin/restaurant-admins/:id/status', toggleRestaurantAdminStatus);
+router.post('/admin/users/:id/credentials', updateAdminCredentials);
+router.post('/admin/app-config', updateAppConfig);
+router.get('/admin/app-config', getAppConfig);
+router.post('/admin/advertisements', createAdvertisement);
+router.get('/admin/advertisements', getAllAdvertisements);
+router.post('/admin/advertisements/:id', updateAdvertisement);
+router.delete('/admin/advertisements/:id', deleteAdvertisement);
+router.post('/admin/notifications', sendPushNotification);
+router.get('/admin/users', getAllUsers);
+router.post('/admin/users/:id/block', toggleUserBlock);
+router.post('/admin/users/:id/admin', toggleAdminStatus);
+router.get('/admin/orders', getAllOrders);
+router.post('/admin/orders/:id/status', updateOrderStatus);
+router.get('/admin/analytics', getDashboardAnalytics);
+router.post('/admin/discounts', createDiscount);
+router.get('/admin/discounts', getAllDiscounts);
+router.post('/admin/discounts/:id', updateDiscount);
+router.delete('/admin/discounts/:id', deleteDiscount);
+router.get('/admin/audit-logs', getAuditLogs);
 
 module.exports = router;

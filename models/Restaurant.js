@@ -1,46 +1,52 @@
 const mongoose = require('mongoose');
 
 const restaurantSchema = new mongoose.Schema({
-  restaurantId: {
-    type: String,
-    required: [true, 'Restaurant ID is required'],
-    unique: true
-  },
   name: {
     type: String,
     required: [true, 'Restaurant name is required'],
-    trim: true
+    trim: true,
+    maxlength: [100, 'Restaurant name cannot exceed 100 characters']
   },
-  city: {
+  description: {
     type: String,
-    ref: 'City',
-    required: [true, 'City is required']
+    required: [true, 'Description is required'],
+    maxlength: [500, 'Description cannot exceed 500 characters']
   },
   address: {
     street: { type: String, required: true },
+    city: { type: String, required: true },
+    state: { type: String, required: true },
     postalCode: { type: String, required: true },
     country: { type: String, required: true }
   },
-  adminId: {
-    type: mongoose.Schema.Types.ObjectId,
-    ref: 'User',
-    required: [true, 'Admin is required']
-  },
-  logoUrl: {
+  phone: {
     type: String,
-    default: 'https://images.unsplash.com/photo-1504674900247-0877df9cc926?q=80&w=2070&auto=format&fit=crop'
+    required: [true, 'Phone number is required'],
+    match: [/^\+?[1-9]\d{1,14}$/, 'Invalid phone number format']
   },
-  banners: [{ type: String }], // Array of banner URLs
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    trim: true,
+    lowercase: true,
+    match: [/^[^\s@]+@[^\s@]+\.[^\s@]+$/, 'Invalid email format']
+  },
+  logo: {
+    type: String,
+    default: 'https://example.com/default-logo.png'
+  },
+  isActive: {
+    type: Boolean,
+    default: true
+  },
   createdBy: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: 'User'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
+    ref: 'User',
+    required: true
   }
+}, {
+  timestamps: true
 });
-
-restaurantSchema.index({ restaurantId: 1, city: 1 });
 
 module.exports = mongoose.model('Restaurant', restaurantSchema);
