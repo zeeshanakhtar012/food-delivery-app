@@ -1,32 +1,36 @@
 const express = require('express');
 const router = express.Router();
 const {
-  createRestaurant,
-  updateRestaurant,
-  deleteRestaurant,
-  createCategory,
-  updateCategory,
-  deleteCategory
-} = require('../controllers/restaurantController');
-const {
+  signinRestaurantAdmin,
+  getRestaurantDetails,
+  addCategory,
+  addFood,
+  updateFood,
+  deleteFood,
   getRestaurantOrders,
+  acceptOrder,
+  rejectOrder,
   updateRestaurantOrderStatus,
   getRestaurantAnalytics
 } = require('../controllers/restaurantAdminController');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
-// Super admin routes
-router.use(authMiddleware);
-router.post('/', createRestaurant);
-router.put('/:id', updateRestaurant);
-router.delete('/:id', deleteRestaurant);
+// Restaurant Admin Login
+router.post('/admin-restaurant/signin', signinRestaurantAdmin);
 
-// Super admin or restaurant admin routes
-router.post('/categories', adminMiddleware, createCategory);
-router.put('/categories/:id', adminMiddleware, updateCategory);
-router.delete('/categories/:id', adminMiddleware, deleteCategory);
+// Restaurant admin routes
+router.use(authMiddleware);
+router.get('/details', adminMiddleware, getRestaurantDetails);
+router.post('/categories', adminMiddleware, addCategory);
+// router.put('/categories/:id', adminMiddleware, updateCategory);
+// router.delete('/categories/:id', adminMiddleware, deleteCategory);
+router.post('/foods', adminMiddleware, addFood);
+router.put('/foods/:id', adminMiddleware, updateFood);
+router.delete('/foods/:id', adminMiddleware, deleteFood);
 router.get('/orders', adminMiddleware, getRestaurantOrders);
+router.post('/orders/:id/accept', adminMiddleware, acceptOrder);
+router.post('/orders/:id/reject', adminMiddleware, rejectOrder);
 router.post('/orders/:id/status', adminMiddleware, updateRestaurantOrderStatus);
 router.get('/analytics', adminMiddleware, getRestaurantAnalytics);
 

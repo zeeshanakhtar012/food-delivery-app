@@ -10,13 +10,13 @@ const userRoutes = require('./routes/userRoutes');
 const foodRoutes = require('./routes/foodRoutes');
 const adminRoutes = require('./routes/adminRoutes');
 const supportRoutes = require('./routes/supportRoutes');
+const restaurantRoutes = require('./routes/restaurantRoutes');
 
 // Explicitly import models
 const Discount = require('./models/Discount');
 const Order = require('./models/Order');
 const Product = require('./models/Product');
-const User = require('./models/User');
-const AppUser = require('./models/AppUser'); // Added AppUser
+const AppUser = require('./models/AppUser'); // Use AppUser instead of User
 const Food = require('./models/Food');
 const Comment = require('./models/Comment');
 const Rating = require('./models/Rating');
@@ -65,11 +65,8 @@ io.use(async (socket, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Check AppUser for admin-related sockets, User for regular users
-    let user = await AppUser.findById(decoded.userId).select('isAdmin isDeleted role');
-    if (!user) {
-      user = await User.findById(decoded.userId).select('isAdmin isDeleted');
-    }
+    // Prioritize AppUser for all users (including admins)
+    const user = await AppUser.findById(decoded.userId).select('isAdmin isDeleted role');
     if (!user || user.isDeleted) {
       return next(new Error('Authentication error: User not found or deactivated'));
     }
@@ -147,6 +144,7 @@ io.on('connection', (socket) => {
 // Routes
 app.use('/api/users', userRoutes);
 app.use('/api/foods', foodRoutes);
+app.use('/api/restaurants', restaurantRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/support', supportRoutes);
 

@@ -9,10 +9,14 @@ module.exports = async (req, res, next) => {
     }
 
     const decoded = jwt.verify(token, jwtSecret);
-    req.user = { userId: decoded.userId };
+    req.user = {
+      userId: decoded.userId,
+      role: decoded.role,
+      isAdmin: decoded.isAdmin,
+    };
     next();
   } catch (error) {
-    console.error('Auth middleware error:', error);
+    console.error('Auth middleware error:', error.message);
     res.status(401).json({ message: 'Invalid token' });
   }
 };

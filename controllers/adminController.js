@@ -9,25 +9,23 @@ const AppConfig = require('../models/AppConfig');
 const Discount = require('../models/Discount');
 const AuditLog = require('../models/AuditLog');
 
-// Create a Super Admin
-const createAdmin = async (req, res) => {
+const signupAdmin = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
 
-    // Validate input
+    // Basic input validation
     if (!name || !email || !password || !phone) {
-      return res.status(400).json({ message: 'Name, email, password, and phone are required' });
+      return res.status(400).json({ message: 'Please provide name, email, password, and phone' });
     }
 
-    // Check if super admin already exists
+    // Check if admin already exists
     const existingAdmin = await AppUser.findOne({ email, role: 'super_admin' });
     if (existingAdmin) {
-      return res.status(400).json({ message: 'Super admin already exists' });
+      return res.status(400).json({ message: 'Super admin with this email already exists' });
     }
 
     // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Create super admin
     const superAdmin = new AppUser({
@@ -37,8 +35,6 @@ const createAdmin = async (req, res) => {
       phone,
       role: 'super_admin',
       isAdmin: true,
-      isDeleted: false,
-      lastLogin: null,
       profileImage: 'https://example.com/default-profile.png',
       loyaltyPoints: 0,
       addresses: [],
@@ -50,91 +46,130 @@ const createAdmin = async (req, res) => {
     await superAdmin.save();
 
     // Log audit action
-    const auditLog = new AuditLog({
-      action: 'CREATE_SUPER_ADMIN',
+    await AuditLog.create({
+      action: 'SIGNUP_SUPER_ADMIN',
       entity: 'User',
       entityId: superAdmin._id,
-      details: `Super admin created with email: ${email}`,
+      details: `Super admin signed up with email: ${email}`,
       performedBy: superAdmin._id,
     });
-    await auditLog.save();
 
-    console.log(`Super admin created: ${email}`);
+    console.log(`Super admin signed up: ${email}`);
     res.status(201).json({ message: 'Super admin created successfully' });
   } catch (error) {
-    console.error(`Error creating super admin: ${error.message}`);
+    console.error(`Signup error: ${error.message}`);
     res.status(500).json({ message: 'Server error' });
   }
 };
 
-// Login Super Admin
-const loginSuperAdmin = async (req, res) => {
+// Simplified Signin (Login Super Admin)
+const signinAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validate input
+    // Basic input validation
     if (!email || !password) {
-      return res.status(400).json({ message: 'Email and password are required' });
-    }
-
-    // Check MongoDB connection
-    if (mongoose.connection.readyState !== 1) {
-      console.error('MongoDB not connected');
-      return res.status(500).json({ message: 'Database not connected' });
+      return res.status(400).json({ message: 'Please provide email and password' });
     }
 
     // Find super admin
     const user = await AppUser.findOne({ email, role: 'super_admin' });
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Check if account is deleted
-    if (user.isDeleted) {
-      return res.status(403).json({ message: 'Account is deactivated' });
+    if (!user || user.isDeleted) {
+      return res.status(401).json({ message: 'Invalid email or account deactivated' });
     }
 
     // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return res.status(401).json({ message: 'Invalid password' });
     }
 
-    // Update lastLogin
+    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // Check JWT_SECRET
-    if (!process.env.JWT_SECRET) {
-      console.error('JWT_SECRET is not defined');
-      return res.status(500).json({ message: 'Server configuration error' });
-    }
-
     // Generate JWT
     const token = jwt.sign(
-      { userId: user._id, role: user.role, isAdmin: user.isAdmin },
+      { userId: user._id, role: 'super_admin', isAdmin: true },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
     // Log audit action
-    const auditLog = new AuditLog({
-      action: 'LOGIN_SUPER_ADMIN',
+    await AuditLog.create({
+      action: 'SIGNIN_SUPER_ADMIN',
       entity: 'User',
       entityId: user._id,
-      details: `Super admin logged in with email: ${email}`,
+      details: `Super admin signed in with email: ${email}`,
       performedBy: user._id,
     });
-    await auditLog.save();
 
-    console.log(`Super admin logged in: ${email}`);
-    res.json({ token, message: 'Login successful' });
+    console.log(`Super admin signed in: ${email}`);
+    res.json({ message: 'Signed in successfully', token });
   } catch (error) {
-    console.error('Error logging in super admin:', {
-      message: error.message,
-      stack: error.stack,
-      email: req.body.email
+    console.error(`Signin error: ${error.message}`);
+    res.status(500).json({ message: 'Server error' });
+  }
+};
+
+// Create Restaurant Admin
+// Create Restaurant
+const createRestaurant = async (req, res) => {
+  try {
+    const { name, description, address, phone, email, logo } = req.body;
+
+    if (!name || !description || !address || !phone || !email) {
+      return res.status(400).json({ message: 'Name, description, address, phone, and email are required' });
+    }
+
+    if (!address.street || !address.city || !address.state || !address.postalCode || !address.country) {
+      return res.status(400).json({ message: 'All address fields (street, city, state, postalCode, country) are required' });
+    }
+
+    const existingRestaurant = await Restaurant.findOne({ email });
+    if (existingRestaurant) {
+      return res.status(400).json({ message: 'Restaurant email already in use' });
+    }
+
+    const restaurant = new Restaurant({
+      name,
+      description,
+      address,
+      phone,
+      email,
+      logo: logo || 'https://example.com/default-logo.png',
+      createdBy: req.user.userId,
+      isActive: true,
     });
+
+    await restaurant.save();
+
+    await AuditLog.create({
+      action: 'CREATE_RESTAURANT',
+      entity: 'Restaurant',
+      entityId: restaurant._id,
+      details: `Restaurant created with name: ${name}`,
+      performedBy: req.user.userId,
+    });
+
+    console.log(`Restaurant created: ${name}`);
+    res.status(201).json({ message: 'Restaurant created successfully', restaurant });
+  } catch (error) {
+    console.error(`Error creating restaurant: ${error.message}`, error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get All Restaurants
+const getAllRestaurants = async (req, res) => {
+  try {
+    const restaurants = await Restaurant.find({ isActive: true })
+      .select('name description address email phone logo createdBy')
+      .populate('createdBy', 'name email');
+    console.log('Restaurants retrieved');
+    res.json(restaurants);
+  } catch (error) {
+    console.error(`Error retrieving restaurants: ${error.message}`, error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -144,28 +179,26 @@ const createRestaurantAdmin = async (req, res) => {
   try {
     const { name, email, password, phone, restaurantId } = req.body;
 
-    // Validate input
     if (!name || !email || !password || !phone || !restaurantId) {
       return res.status(400).json({ message: 'Name, email, password, phone, and restaurantId are required' });
     }
 
-    // Validate restaurant
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return res.status(404).json({ message: 'Restaurant not found' });
+    if (!mongoose.isValidObjectId(restaurantId)) {
+      return res.status(400).json({ message: 'Invalid restaurantId format' });
     }
 
-    // Check if email or phone already exists
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant || !restaurant.isActive) {
+      return res.status(404).json({ message: 'Restaurant not found or inactive' });
+    }
+
     const existingUser = await AppUser.findOne({ $or: [{ email }, { phone }] });
     if (existingUser) {
       return res.status(400).json({ message: 'Email or phone already in use' });
     }
 
-    // Hash password
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(password, salt);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Create restaurant admin
     const restaurantAdmin = new AppUser({
       name,
       email,
@@ -174,8 +207,6 @@ const createRestaurantAdmin = async (req, res) => {
       role: 'restaurant_admin',
       restaurantId,
       isAdmin: true,
-      isDeleted: false,
-      lastLogin: null,
       profileImage: 'https://example.com/default-profile.png',
       loyaltyPoints: 0,
       addresses: [],
@@ -186,21 +217,19 @@ const createRestaurantAdmin = async (req, res) => {
 
     await restaurantAdmin.save();
 
-    // Log audit action
-    const auditLog = new AuditLog({
+    await AuditLog.create({
       action: 'CREATE_RESTAURANT_ADMIN',
       entity: 'User',
       entityId: restaurantAdmin._id,
-      details: `Restaurant admin created with email: ${email} for restaurant: ${restaurantId}`,
+      details: `Restaurant admin created with email: ${email} for restaurant: ${restaurant.name}`,
       performedBy: req.user.userId,
     });
-    await auditLog.save();
 
     console.log(`Restaurant admin created: ${email}`);
-    res.status(201).json({ message: 'Restaurant admin created successfully' });
+    res.status(201).json({ message: 'Restaurant admin created successfully', restaurantAdmin });
   } catch (error) {
-    console.error(`Error creating restaurant admin: ${error.message}`);
-    res.status(500).json({ message: 'Server error' });
+    console.error(`Error creating restaurant admin: ${error.message}`, error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
 
@@ -869,8 +898,10 @@ const getAuditLogs = async (req, res) => {
 
 // Export all controller functions
 module.exports = {
-  createAdmin,
-  loginSuperAdmin,
+  signupAdmin,
+  signinAdmin,
+  createRestaurant,
+  getAllRestaurants,
   createRestaurantAdmin,
   updateAdminCredentials,
   toggleRestaurantAdminStatus,
