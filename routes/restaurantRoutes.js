@@ -3,9 +3,13 @@ const router = express.Router();
 const {
   signinRestaurantAdmin,
   getRestaurantDetails,
+  updateRestaurant,
+  updateCategory,
+  deleteCategory,
   addCategory,
   addFood,
   updateFood,
+  getAllCategories,
   deleteFood,
   getRestaurantOrders,
   acceptOrder,
@@ -22,11 +26,13 @@ router.post('/admin-restaurant/signin', signinRestaurantAdmin);
 // Restaurant admin routes
 router.use(authMiddleware);
 router.get('/details', adminMiddleware, getRestaurantDetails);
+router.get('/all-categories', adminMiddleware, getAllCategories);
+router.post('/details', adminMiddleware, updateRestaurant);
 router.post('/categories', adminMiddleware, addCategory);
-// router.put('/categories/:id', adminMiddleware, updateCategory);
-// router.delete('/categories/:id', adminMiddleware, deleteCategory);
+router.put('/categories/:id', adminMiddleware, updateCategory);
+router.delete('/categories/:id', adminMiddleware, deleteCategory);
 router.post('/foods', adminMiddleware, addFood);
-router.put('/foods/:id', adminMiddleware, updateFood);
+router.post('/foods/:id', adminMiddleware, updateFood);
 router.delete('/foods/:id', adminMiddleware, deleteFood);
 router.get('/orders', adminMiddleware, getRestaurantOrders);
 router.post('/orders/:id/accept', adminMiddleware, acceptOrder);

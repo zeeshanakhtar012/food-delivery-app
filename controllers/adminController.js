@@ -88,12 +88,16 @@ const signinAdmin = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate JWT
-    const token = jwt.sign(
-      { userId: user._id, role: 'super_admin', isAdmin: true },
-      process.env.JWT_SECRET,
-      { expiresIn: '1h' }
-    );
+// Generate JWT
+const token = jwt.sign(
+  {
+    userId: user._id,
+    role: 'super_admin',
+    isAdmin: true
+  },
+  process.env.JWT_SECRET,
+  { expiresIn: '1h' }
+);
 
     // Log audit action
     await AuditLog.create({
@@ -112,7 +116,6 @@ const signinAdmin = async (req, res) => {
   }
 };
 
-// Create Restaurant Admin
 // Create Restaurant
 const createRestaurant = async (req, res) => {
   try {
@@ -156,20 +159,6 @@ const createRestaurant = async (req, res) => {
     res.status(201).json({ message: 'Restaurant created successfully', restaurant });
   } catch (error) {
     console.error(`Error creating restaurant: ${error.message}`, error.stack);
-    res.status(500).json({ message: 'Server error', error: error.message });
-  }
-};
-
-// Get All Restaurants
-const getAllRestaurants = async (req, res) => {
-  try {
-    const restaurants = await Restaurant.find({ isActive: true })
-      .select('name description address email phone logo createdBy')
-      .populate('createdBy', 'name email');
-    console.log('Restaurants retrieved');
-    res.json(restaurants);
-  } catch (error) {
-    console.error(`Error retrieving restaurants: ${error.message}`, error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -229,6 +218,114 @@ const createRestaurantAdmin = async (req, res) => {
     res.status(201).json({ message: 'Restaurant admin created successfully', restaurantAdmin });
   } catch (error) {
     console.error(`Error creating restaurant admin: ${error.message}`, error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Create Restaurant and Restaurant Admin Together
+const createRestaurantWithAdmin = async (req, res) => {
+  try {
+    const { restaurantData, adminData } = req.body;
+
+    // Validate inputs
+    if (!restaurantData || !adminData) {
+      return res.status(400).json({ message: 'restaurantData and adminData are required' });
+    }
+
+    const { name, description, address, phone, email, logo } = restaurantData;
+    const { adminName, adminEmail, adminPassword, adminPhone } = adminData;
+
+    // Validate restaurant data
+    if (!name || !description || !address || !phone || !email) {
+      return res.status(400).json({ message: 'Restaurant name, description, address, phone, and email are required' });
+    }
+    if (!address.street || !address.city || !address.state || !address.postalCode || !address.country) {
+      return res.status(400).json({ message: 'All restaurant address fields are required' });
+    }
+    const existingRestaurant = await Restaurant.findOne({ email });
+    if (existingRestaurant) {
+      return res.status(400).json({ message: 'Restaurant email already in use' });
+    }
+
+    // Validate admin data
+    if (!adminName || !adminEmail || !adminPassword || !adminPhone) {
+      return res.status(400).json({ message: 'Admin name, email, password, and phone are required' });
+    }
+    const existingUser = await AppUser.findOne({ $or: [{ email: adminEmail }, { phone: adminPhone }] });
+    if (existingUser) {
+      return res.status(400).json({ message: 'Admin email or phone already in use' });
+    }
+
+    // Create restaurant
+    const restaurant = new Restaurant({
+      name,
+      description,
+      address,
+      phone,
+      email,
+      logo: logo || 'https://example.com/default-logo.png',
+      createdBy: req.user.userId,
+      isActive: true,
+    });
+    await restaurant.save();
+
+    // Create restaurant admin
+    const hashedPassword = await bcrypt.hash(adminPassword, 10);
+    const restaurantAdmin = new AppUser({
+      name: adminName,
+      email: adminEmail,
+      password: hashedPassword,
+      phone: adminPhone,
+      role: 'restaurant_admin',
+      restaurantId: restaurant._id,
+      isAdmin: true,
+      profileImage: 'https://example.com/default-profile.png',
+      loyaltyPoints: 0,
+      addresses: [],
+      orders: [],
+      cancelledOrders: [],
+      favorites: [],
+    });
+    await restaurantAdmin.save();
+
+    // Audit logs
+    await AuditLog.create({
+      action: 'CREATE_RESTAURANT',
+      entity: 'Restaurant',
+      entityId: restaurant._id,
+      details: `Restaurant created with name: ${name}`,
+      performedBy: req.user.userId,
+    });
+    await AuditLog.create({
+      action: 'CREATE_RESTAURANT_ADMIN',
+      entity: 'User',
+      entityId: restaurantAdmin._id,
+      details: `Restaurant admin created with email: ${adminEmail} for restaurant: ${restaurant.name}`,
+      performedBy: req.user.userId,
+    });
+
+    console.log(`Restaurant and admin created: ${name}, ${adminEmail}`);
+    res.status(201).json({
+      message: 'Restaurant and admin created successfully',
+      restaurant,
+      restaurantAdmin,
+    });
+  } catch (error) {
+    console.error(`Error creating restaurant with admin: ${error.message}`, error.stack);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get All Restaurants
+const getAllRestaurants = async (req, res) => {
+  try {
+    const restaurants = await Restaurant.find({ isActive: true })
+      .select('name description address email phone logo createdBy')
+      .populate('createdBy', 'name email');
+    console.log('Restaurants retrieved');
+    res.json(restaurants);
+  } catch (error) {
+    console.error(`Error retrieving restaurants: ${error.message}`, error.stack);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -903,6 +1000,7 @@ module.exports = {
   createRestaurant,
   getAllRestaurants,
   createRestaurantAdmin,
+  createRestaurantWithAdmin,
   updateAdminCredentials,
   toggleRestaurantAdminStatus,
   updateAppConfig,

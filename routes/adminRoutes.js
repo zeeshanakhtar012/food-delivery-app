@@ -7,6 +7,7 @@ const {
   createRestaurant,
   getAllRestaurants,
   createRestaurantAdmin,
+  createRestaurantWithAdmin,
   updateAdminCredentials,
   toggleRestaurantAdminStatus,
   updateAppConfig,
@@ -49,6 +50,7 @@ router.use((req, res, next) => {
 
 // Restaurant management
 router.post('/create-restaurants', createRestaurant);
+router.post('/create-restaurant-with-admin', createRestaurantWithAdmin);
 router.get('/get-restaurants', getAllRestaurants);
 router.post('/create-restaurant-admins', createRestaurantAdmin);
 router.post('/restaurant-admins/:id/status', toggleRestaurantAdminStatus);

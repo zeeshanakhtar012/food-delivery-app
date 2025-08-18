@@ -80,17 +80,71 @@ const signinRestaurantAdmin = async (req, res) => {
 // Get Restaurant Details
 const getRestaurantDetails = async (req, res) => {
   try {
-    const restaurant = await Restaurant.findById(req.user.restaurantId)
+    let restaurantId = req.user.restaurantId;
+
+    // Allow super admins to specify a restaurantId
+    if (req.user.role === 'super_admin' && req.query.restaurantId) {
+      if (!mongoose.isValidObjectId(req.query.restaurantId)) {
+        return res.status(400).json({ message: 'Invalid restaurantId' });
+      }
+      restaurantId = req.query.restaurantId;
+    }
+
+    if (!restaurantId) {
+      return res.status(400).json({ message: 'Restaurant ID not provided' });
+    }
+
+    const restaurant = await Restaurant.findById(restaurantId)
       .select('name description address email phone logo isActive')
       .populate('createdBy', 'name email');
     if (!restaurant || !restaurant.isActive) {
       return res.status(404).json({ message: 'Restaurant not found or inactive' });
     }
 
-    console.log(`Restaurant details retrieved for ID: ${req.user.restaurantId}`);
+    console.log(`Restaurant details retrieved for ID: ${restaurantId}`);
     res.json({ message: 'Restaurant details retrieved successfully', restaurant });
   } catch (error) {
     logger.error('Get restaurant details error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Update Restaurant
+const updateRestaurant = async (req, res) => {
+  try {
+    const { name, description, address, phone, email, logo } = req.body;
+    const restaurant = await Restaurant.findById(req.user.restaurantId);
+    if (!restaurant || !restaurant.isActive) {
+      return res.status(404).json({ message: 'Restaurant not found or inactive' });
+    }
+
+    const updates = {};
+    if (name) updates.name = name;
+    if (description) updates.description = description;
+    if (address) updates.address = address;
+    if (phone) updates.phone = phone;
+    if (email) {
+      const existingRestaurant = await Restaurant.findOne({ email, _id: { $ne: req.user.restaurantId } });
+      if (existingRestaurant) {
+        return res.status(400).json({ message: 'Email already in use by another restaurant' });
+      }
+      updates.email = email;
+    }
+    if (logo) updates.logo = logo;
+
+    await Restaurant.updateOne({ _id: req.user.restaurantId }, { $set: updates });
+    await logAdminAction(
+      'UPDATE_RESTAURANT',
+      'Restaurant',
+      restaurant._id,
+      `Restaurant updated by admin ${req.user.userId}`,
+      req.user.userId
+    );
+
+    console.log(`Restaurant updated: ${req.user.restaurantId}`);
+    res.json({ message: 'Restaurant updated successfully' });
+  } catch (error) {
+    logger.error('Update restaurant error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -242,6 +296,93 @@ const updateFood = async (req, res) => {
     res.status(200).json({ message: 'Food updated successfully', food: updatedFood });
   } catch (error) {
     logger.error('Update food error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+// Update Food Category
+const updateCategory = async (req, res) => {
+  const { id } = req.params;
+  const { name } = req.body;
+
+  try {
+    // Validate input
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid category ID' });
+    }
+    if (!name || name.trim().length < 3) {
+      return res.status(400).json({ message: 'Category name must be at least 3 characters' });
+    }
+
+    // Find the category
+    const category = await Category.findById(id);
+    if (!category || category.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to update this category' });
+    }
+
+    // Check if the new category name already exists for this restaurant
+    const existingCategory = await Category.findOne({
+      name,
+      restaurantId: req.user.restaurantId,
+      _id: { $ne: id }, // Exclude the current category
+    });
+    if (existingCategory) {
+      return res.status(400).json({ message: 'Category name already exists for this restaurant' });
+    }
+
+    // Update the category
+    category.name = name;
+    await category.save();
+
+    // Log audit action
+    await logAdminAction(
+      'UPDATE_CATEGORY',
+      'Category',
+      category._id,
+      `Category ${name} updated for restaurant ${req.user.restaurantId}`,
+      req.user.userId
+    );
+
+    console.log(`Category updated: ${name}`);
+    res.status(200).json({ message: 'Category updated successfully', category });
+  } catch (error) {
+    logger.error('Update category error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+// Delete Food Category
+const deleteCategory = async (req, res) => {
+  const { id } = req.params;
+
+  try {
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid category ID' });
+    }
+
+    const category = await Category.findById(id);
+    if (!category || category.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to delete this category' });
+    }
+
+    // Check if category is associated with any food items
+    const foodCount = await Food.countDocuments({ category: id });
+    if (foodCount > 0) {
+      return res.status(400).json({ message: 'Cannot delete category with associated food items' });
+    }
+
+    await Category.findByIdAndDelete(id);
+
+    await logAdminAction(
+      'DELETE_CATEGORY',
+      'Category',
+      category._id,
+      `Category ${category.name} deleted for restaurant ${req.user.restaurantId}`,
+      req.user.userId
+    );
+
+    console.log(`Category deleted: ${category.name}`);
+    res.status(200).json({ message: 'Category deleted successfully' });
+  } catch (error) {
+    logger.error('Delete category error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
@@ -417,7 +558,7 @@ const getRestaurantAnalytics = async (req, res) => {
 
     const [orderStats, revenueStats, topFoods] = await Promise.all([
       Order.aggregate([
-        { $match: { restaurantId: mongoose.Types.ObjectId(req.user.restaurantId), createdAt: { $gte: startDate } } },
+        { $match: { restaurantId: new mongoose.Types.ObjectId(req.user.restaurantId), createdAt: { $gte: startDate } } },
         {
           $group: {
             _id: null,
@@ -429,7 +570,7 @@ const getRestaurantAnalytics = async (req, res) => {
         }
       ]),
       Order.aggregate([
-        { $match: { restaurantId: mongoose.Types.ObjectId(req.user.restaurantId), createdAt: { $gte: startDate }, status: 'delivered' } },
+        { $match: { restaurantId: new mongoose.Types.ObjectId(req.user.restaurantId), createdAt: { $gte: startDate }, status: 'delivered' } },
         {
           $group: {
             _id: null,
@@ -439,7 +580,7 @@ const getRestaurantAnalytics = async (req, res) => {
         }
       ]),
       Order.aggregate([
-        { $match: { restaurantId: mongoose.Types.ObjectId(req.user.restaurantId), createdAt: { $gte: startDate } } },
+        { $match: { restaurantId: new mongoose.Types.ObjectId(req.user.restaurantId), createdAt: { $gte: startDate } } },
         { $unwind: '$items' },
         {
           $group: {
@@ -482,12 +623,34 @@ const getRestaurantAnalytics = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+const getAllCategories = async (req, res) => {
+  try {
+    const categories = await Category.find({
+      restaurantId: req.user.restaurantId,
+      isActive: true,
+    }).select('name createdAt');
+
+    console.log(`Categories retrieved for restaurant: ${req.user.restaurantId}`);
+    res.status(200).json({
+      message: 'Categories retrieved successfully',
+      count: categories.length,
+      categories,
+    });
+  } catch (error) {
+    logger.error('Get categories error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
 
 module.exports = {
   signinRestaurantAdmin,
   getRestaurantDetails,
+  updateRestaurant,
   addCategory,
+  updateCategory, 
+  deleteCategory,// Add this line
   addFood,
+  getAllCategories,
   updateFood,
   deleteFood,
   getRestaurantOrders,

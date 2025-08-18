@@ -13,6 +13,7 @@ module.exports = async (req, res, next) => {
       userId: decoded.userId,
       role: decoded.role,
       isAdmin: decoded.isAdmin,
+      restaurantId: decoded.restaurantId, // Include restaurantId
     };
     next();
   } catch (error) {
