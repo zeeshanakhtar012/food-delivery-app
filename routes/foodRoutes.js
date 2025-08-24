@@ -9,15 +9,29 @@ const {
   updateCartItem,
   removeCartItem,
   clearCart,
-  trackOrder
+  trackOrder,
+  addFood,
+  updateFood,
+  deleteFood,
+  updatePricesByCategory,
+  addToFavorites,
+  removeFromFavorites,
+  getFavorites,
+  getUniqueCategories,
+  getAllRestaurants,
+  getCategoriesByRestaurant,
+  getFoodsByRestaurantAndCategory
 } = require('../controllers/foodController');
-const { addFood, updateFood, deleteFood } = require('../controllers/restaurantAdminController');
 const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
 // Public routes
 router.get('/', getAllFoods);
-router.get('/:id', getFoodDetails);
+router.get('/categories', getUniqueCategories);
+router.get('/restaurants', getAllRestaurants);
+router.get('/restaurants/:restaurantId/categories', getCategoriesByRestaurant);
+router.get('/restaurants/:restaurantId/categories/:categoryId/foods', getFoodsByRestaurantAndCategory);
+router.get('/:id', getFoodDetails); // Moved after specific routes
 
 // Protected routes (user)
 router.post('/order', authMiddleware, placeOrder);
@@ -27,10 +41,14 @@ router.post('/cart/update', authMiddleware, updateCartItem);
 router.delete('/cart/remove/:foodId', authMiddleware, removeCartItem);
 router.delete('/cart/clear', authMiddleware, clearCart);
 router.get('/orders/:id/track', authMiddleware, trackOrder);
+router.post('/favorites', authMiddleware, addToFavorites);
+router.delete('/favorites/:foodId', authMiddleware, removeFromFavorites);
+router.get('/favorites', authMiddleware, getFavorites);
 
-// Admin routes (super admin or restaurant admin)
+// Admin routes
 router.post('/', authMiddleware, adminMiddleware, addFood);
-router.put('/:id', authMiddleware, adminMiddleware, updateFood);
+router.post('/:id', authMiddleware, adminMiddleware, updateFood);
 router.delete('/:id', authMiddleware, adminMiddleware, deleteFood);
+router.post('/prices/category', authMiddleware, adminMiddleware, updatePricesByCategory);
 
 module.exports = router;

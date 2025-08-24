@@ -10,7 +10,8 @@ const {
   addAddress,
   removeAddress,
   setDefaultAddress,
-  updatePreferences
+  updatePreferences,
+  logoutUser
 } = require('../controllers/userController');
 const authMiddleware = require('../middleware/authMiddleware');
 
@@ -27,5 +28,6 @@ router.post('/addresses', authMiddleware, addAddress);
 router.delete('/addresses/:addressId', authMiddleware, removeAddress);
 router.patch('/addresses/:addressId/default', authMiddleware, setDefaultAddress);
 router.patch('/preferences', authMiddleware, updatePreferences);
+router.post('/logout', authMiddleware, logoutUser);
 
 module.exports = router;

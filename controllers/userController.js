@@ -20,6 +20,27 @@ if (!jwtSecret) {
   throw new Error('JWT_SECRET is not defined in environment variables');
 }
 
+// Token Blacklist Schema
+const tokenBlacklistSchema = new mongoose.Schema({
+  token: {
+    type: String,
+    required: true,
+    unique: true
+  },
+  userId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  createdAt: {
+    type: Date,
+    default: Date.now,
+    expires: '7d' // Automatically remove after 7 days (matching JWT expiry)
+  }
+});
+
+const TokenBlacklist = mongoose.model('TokenBlacklist', tokenBlacklistSchema);
+
 // Input validation helper for registration
 const validateRegisterInput = (data) => {
   const errors = [];
@@ -96,7 +117,7 @@ const validatePreferencesInput = (data) => {
 // Register user
 exports.registerUser = async (req, res) => {
   console.log('Register endpoint hit:', req.body);
-  const { name, email, password, phone, dateOfBirth, address, bio, preferences } = req.body;
+  const { name, email, password, phone, dateOfBirth, address, bio, preferences, role, isAdmin, restaurantId } = req.body;
 
   try {
     // Validate input
@@ -142,11 +163,18 @@ exports.registerUser = async (req, res) => {
           sms: true,
           push: true
         }
-      }
+      },
+      role: role || 'user', // Default to 'user' if not provided
+      isAdmin: isAdmin || false, // Default to false if not provided
+      restaurantId: restaurantId || null // Default to null if not provided
     });
 
     // Generate JWT
-    const token = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { userId: user._id, role: user.role, isAdmin: user.isAdmin, restaurantId: user.restaurantId },
+      jwtSecret,
+      { expiresIn: '7d' }
+    );
 
     res.status(201).json({
       message: 'User registered successfully',
@@ -160,7 +188,10 @@ exports.registerUser = async (req, res) => {
         addresses: user.addresses,
         bio: user.bio,
         profileImage: user.profileImage,
-        isVerified: user.isVerified
+        isVerified: user.isVerified,
+        role: user.role,
+        isAdmin: user.isAdmin,
+        restaurantId: user.restaurantId
       }
     });
   } catch (error) {
@@ -193,7 +224,11 @@ exports.loginUser = async (req, res) => {
     user.lastLogin = new Date();
     await user.save();
 
-    const token = jwt.sign({ userId: user._id }, jwtSecret, { expiresIn: '7d' });
+    const token = jwt.sign(
+      { userId: user._id, role: user.role, isAdmin: user.isAdmin, restaurantId: user.restaurantId },
+      jwtSecret,
+      { expiresIn: '7d' }
+    );
 
     res.status(200).json({
       message: 'Login successful',
@@ -204,7 +239,10 @@ exports.loginUser = async (req, res) => {
         email: user.email,
         phone: user.phone,
         profileImage: user.profileImage,
-        isVerified: user.isVerified
+        isVerified: user.isVerified,
+        role: user.role,
+        isAdmin: user.isAdmin,
+        restaurantId: user.restaurantId
       }
     });
   } catch (error) {
@@ -264,6 +302,9 @@ exports.getUserProfile = async (req, res) => {
         lastLogin: user.lastLogin,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt,
+        role: user.role,
+        isAdmin: user.isAdmin,
+        restaurantId: user.restaurantId,
         orderAnalytics: analytics[0] || {
           totalOrders: 0,
           totalSpent: 0,
@@ -352,7 +393,10 @@ exports.updateUserProfile = async (req, res) => {
         preferences: user.preferences,
         loyaltyPoints: user.loyaltyPoints,
         totalOrders: user.totalOrders,
-        lastLogin: user.lastLogin
+        lastLogin: user.lastLogin,
+        role: user.role,
+        isAdmin: user.isAdmin,
+        restaurantId: user.restaurantId
       }
     });
   } catch (error) {
@@ -581,3 +625,38 @@ exports.updatePreferences = async (req, res) => {
     res.status(500).json({ message: 'Server error occurred' });
   }
 };
+
+// Logout user
+exports.logoutUser = async (req, res) => {
+  console.log('Logout endpoint hit:', req.user.userId);
+  try {
+    const token = req.header('Authorization')?.replace('Bearer ', '');
+    if (!token) {
+      return res.status(400).json({ message: 'No token provided' });
+    }
+
+    // Verify token
+    try {
+      const decoded = jwt.verify(token, jwtSecret);
+      if (decoded.userId !== req.user.userId) {
+        return res.status(401).json({ message: 'Invalid token' });
+      }
+    } catch (error) {
+      return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    // Add token to blacklist
+    await TokenBlacklist.create({
+      token,
+      userId: req.user.userId
+    });
+
+    res.status(200).json({ message: 'Logout successful' });
+  } catch (error) {
+    logger.error('Logout error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error occurred' });
+  }
+};
+
+// Export TokenBlacklist model for use in middleware
+exports.TokenBlacklist = TokenBlacklist;
