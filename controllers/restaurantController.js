@@ -109,7 +109,7 @@ exports.updateRestaurant = async (req, res) => {
 // Delete restaurant (super admin only)
 exports.deleteRestaurant = async (req, res) => {
   const { id } = req.params;
-
+console.log('Delete restaurant endpoint hit:', req.params);
   try {
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ message: 'Invalid restaurant ID' });
 
@@ -134,7 +134,7 @@ exports.deleteRestaurant = async (req, res) => {
 // Create category (super admin or restaurant admin)
 exports.createCategory = async (req, res) => {
   const { name, restaurantId } = req.body;
-
+console.log('Create category endpoint hit:', req.body);
   try {
     if (!name || name.trim().length < 3) return res.status(400).json({ message: 'Category name must be at least 3 characters' });
     if (!mongoose.isValidObjectId(restaurantId)) return res.status(400).json({ message: 'Invalid restaurant ID' });
@@ -167,7 +167,7 @@ exports.createCategory = async (req, res) => {
 exports.updateCategory = async (req, res) => {
   const { id } = req.params;
   const { name, isActive } = req.body;
-
+  console.log('Update category endpoint hit:', req.params, req.body);
   try {
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ message: 'Invalid category ID' });
     if (name && name.trim().length < 3) return res.status(400).json({ message: 'Category name must be at least 3 characters' });
@@ -203,7 +203,7 @@ exports.updateCategory = async (req, res) => {
 // Delete category (super admin or restaurant admin)
 exports.deleteCategory = async (req, res) => {
   const { id } = req.params;
-
+  console.log('Delete category endpoint hit:', req.params);
   try {
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ message: 'Invalid category ID' });
 
