@@ -32,35 +32,29 @@ const signinRestaurantAdmin = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Basic input validation
     if (!email || !password) {
       return res.status(400).json({ message: 'Please provide email and password' });
     }
 
-    // Find restaurant admin
     const user = await AppUser.findOne({ email, role: 'restaurant_admin' });
     if (!user || user.isDeleted) {
       return res.status(401).json({ message: 'Invalid email or account deactivated' });
     }
 
-    // Verify password
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid password' });
     }
 
-    // Update last login
     user.lastLogin = new Date();
     await user.save();
 
-    // Generate JWT
     const token = jwt.sign(
       { userId: user._id, role: 'restaurant_admin', isAdmin: true, restaurantId: user.restaurantId },
       process.env.JWT_SECRET,
       { expiresIn: '1h' }
     );
 
-    // Log audit action
     await logAdminAction(
       'SIGNIN_RESTAURANT_ADMIN',
       'User',
@@ -82,7 +76,6 @@ const getRestaurantDetails = async (req, res) => {
   try {
     let restaurantId = req.user.restaurantId;
 
-    // Allow super admins to specify a restaurantId
     if (req.user.role === 'super_admin' && req.query.restaurantId) {
       if (!mongoose.isValidObjectId(req.query.restaurantId)) {
         return res.status(400).json({ message: 'Invalid restaurantId' });
@@ -95,7 +88,7 @@ const getRestaurantDetails = async (req, res) => {
     }
 
     const restaurant = await Restaurant.findById(restaurantId)
-      .select('name description address email phone logo isActive')
+      .select('name description address email phone logo images isActive')
       .populate('createdBy', 'name email');
     if (!restaurant || !restaurant.isActive) {
       return res.status(404).json({ message: 'Restaurant not found or inactive' });
@@ -112,7 +105,9 @@ const getRestaurantDetails = async (req, res) => {
 // Update Restaurant
 const updateRestaurant = async (req, res) => {
   try {
-    const { name, description, address, phone, email, logo } = req.body;
+    const { name, description, address, phone, email } = req.body;
+    const restaurantImages = req.files?.restaurantImages;
+
     const restaurant = await Restaurant.findById(req.user.restaurantId);
     if (!restaurant || !restaurant.isActive) {
       return res.status(404).json({ message: 'Restaurant not found or inactive' });
@@ -122,15 +117,27 @@ const updateRestaurant = async (req, res) => {
     if (name) updates.name = name;
     if (description) updates.description = description;
     if (address) updates.address = address;
-    if (phone) updates.phone = phone;
+    if (phone) {
+      if (!/^\+?[1-9]\d{1,14}$/.test(phone)) {
+        return res.status(400).json({ message: 'Invalid phone number format' });
+      }
+      updates.phone = phone;
+    }
     if (email) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        return res.status(400).json({ message: 'Invalid email format' });
+      }
       const existingRestaurant = await Restaurant.findOne({ email, _id: { $ne: req.user.restaurantId } });
       if (existingRestaurant) {
         return res.status(400).json({ message: 'Email already in use by another restaurant' });
       }
       updates.email = email;
     }
-    if (logo) updates.logo = logo;
+    if (restaurantImages) {
+      const imageUrls = restaurantImages.map(file => `/uploads/restaurants/${file.filename}`);
+      updates.images = [...(restaurant.images || []), ...imageUrls];
+      updates.logo = imageUrls[0] || restaurant.logo; // Update logo if new images are uploaded
+    }
 
     await Restaurant.updateOne({ _id: req.user.restaurantId }, { $set: updates });
     await logAdminAction(
@@ -154,18 +161,15 @@ const addCategory = async (req, res) => {
   try {
     const { name } = req.body;
 
-    // Validate input
     if (!name || name.trim().length < 3) {
       return res.status(400).json({ message: 'Category name must be at least 3 characters' });
     }
 
-    // Check if category already exists for this restaurant
     const existingCategory = await Category.findOne({ name, restaurantId: req.user.restaurantId });
     if (existingCategory) {
       return res.status(400).json({ message: 'Category already exists for this restaurant' });
     }
 
-    // Create category
     const category = new Category({
       name,
       restaurantId: req.user.restaurantId,
@@ -175,7 +179,6 @@ const addCategory = async (req, res) => {
 
     await category.save();
 
-    // Log audit action
     await logAdminAction(
       'CREATE_CATEGORY',
       'Category',
@@ -211,7 +214,8 @@ const validateAddFoodInput = (data) => {
 
 // Add Food
 const addFood = async (req, res) => {
-  const { name, description, category, price, image, ingredients, nutritionalInfo, preparationTime, isAvailable } = req.body;
+  const { name, description, category, price, ingredients, nutritionalInfo, preparationTime, isAvailable } = req.body;
+  const foodImages = req.files?.foodImages;
 
   try {
     const errors = validateAddFoodInput(req.body);
@@ -227,12 +231,15 @@ const addFood = async (req, res) => {
       return res.status(404).json({ message: 'Restaurant not found or inactive' });
     }
 
+    const imageUrls = foodImages ? foodImages.map(file => `/uploads/foods/${file.filename}`) : [];
+
     const food = await Food.create({
       name,
       description,
       category,
       price,
-      image: image || 'https://images.unsplash.com/photo-1504674900247-0877df9cc926?q=80&w=2070&auto=format&fit=crop',
+      image: imageUrls[0] || 'https://images.unsplash.com/photo-1504674900247-0877df9cc926?q=80&w=2070&auto=format&fit=crop',
+      images: imageUrls,
       ingredients: ingredients || [],
       nutritionalInfo: nutritionalInfo || { calories: 0, protein: 0, fat: 0, carbohydrates: 0 },
       preparationTime: preparationTime || 15,
@@ -260,7 +267,8 @@ const addFood = async (req, res) => {
 // Update Food
 const updateFood = async (req, res) => {
   const { id } = req.params;
-  const { name, description, category, price, image, ingredients, nutritionalInfo, preparationTime, isAvailable } = req.body;
+  const { name, description, category, price, ingredients, nutritionalInfo, preparationTime, isAvailable } = req.body;
+  const foodImages = req.files?.foodImages;
 
   try {
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ message: 'Invalid food ID' });
@@ -273,14 +281,29 @@ const updateFood = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to update this food' });
     }
 
-    const categoryDoc = await Category.findById(category);
+    const categoryDoc = await Category.findById(category || food.category);
     if (!categoryDoc || categoryDoc.restaurantId.toString() !== req.user.restaurantId.toString()) {
       return res.status(403).json({ message: 'Unauthorized to use this category' });
     }
 
+    const imageUrls = foodImages ? foodImages.map(file => `/uploads/foods/${file.filename}`) : food.images;
+
     const updatedFood = await Food.findByIdAndUpdate(
       id,
-      { $set: { name, description, category, price, image, ingredients, nutritionalInfo, preparationTime, isAvailable } },
+      {
+        $set: {
+          name: name || food.name,
+          description: description || food.description,
+          category: category || food.category,
+          price: price !== undefined ? price : food.price,
+          image: imageUrls[0] || food.image,
+          images: imageUrls,
+          ingredients: ingredients || food.ingredients,
+          nutritionalInfo: nutritionalInfo || food.nutritionalInfo,
+          preparationTime: preparationTime !== undefined ? preparationTime : food.preparationTime,
+          isAvailable: isAvailable !== undefined ? isAvailable : food.isAvailable
+        }
+      },
       { new: true, runValidators: true }
     );
 
@@ -288,24 +311,95 @@ const updateFood = async (req, res) => {
       'UPDATE_FOOD',
       'Food',
       updatedFood._id,
-      `Food ${name} updated for restaurant ${req.user.restaurantId}`,
+      `Food ${name || updatedFood.name} updated for restaurant ${req.user.restaurantId}`,
       req.user.userId
     );
 
-    console.log(`Food updated: ${name}`);
+    console.log(`Food updated: ${updatedFood.name}`);
     res.status(200).json({ message: 'Food updated successfully', food: updatedFood });
   } catch (error) {
     logger.error('Update food error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+// Upload Restaurant Images
+const uploadRestaurantImages = async (req, res) => {
+  try {
+    const restaurantImages = req.files?.restaurantImages;
+    if (!restaurantImages || restaurantImages.length === 0) {
+      return res.status(400).json({ message: 'No images uploaded' });
+    }
+
+    const restaurant = await Restaurant.findById(req.user.restaurantId);
+    if (!restaurant || !restaurant.isActive) {
+      return res.status(404).json({ message: 'Restaurant not found or inactive' });
+    }
+
+    const imageUrls = restaurantImages.map(file => `/uploads/restaurants/${file.filename}`);
+    restaurant.images = [...(restaurant.images || []), ...imageUrls];
+    restaurant.logo = imageUrls[0] || restaurant.logo; // Update logo if new images are uploaded
+    await restaurant.save();
+
+    await logAdminAction(
+      'UPLOAD_RESTAURANT_IMAGES',
+      'Restaurant',
+      restaurant._id,
+      `Uploaded ${restaurantImages.length} images for restaurant ${req.user.restaurantId}`,
+      req.user.userId
+    );
+
+    console.log(`Uploaded ${restaurantImages.length} images for restaurant: ${req.user.restaurantId}`);
+    res.status(200).json({ message: 'Images uploaded successfully', images: restaurant.images });
+  } catch (error) {
+    logger.error('Upload restaurant images error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Upload Food Images
+const uploadFoodImages = async (req, res) => {
+  const { foodId } = req.params;
+  try {
+    if (!mongoose.isValidObjectId(foodId)) return res.status(400).json({ message: 'Invalid food ID' });
+
+    const foodImages = req.files?.foodImages;
+    if (!foodImages || foodImages.length === 0) {
+      return res.status(400).json({ message: 'No images uploaded' });
+    }
+
+    const food = await Food.findById(foodId);
+    if (!food || food.restaurantId.toString() !== req.user.restaurantId.toString()) {
+      return res.status(403).json({ message: 'Unauthorized to upload images for this food' });
+    }
+
+    const imageUrls = foodImages.map(file => `/uploads/foods/${file.filename}`);
+    food.images = [...(food.images || []), ...imageUrls];
+    food.image = imageUrls[0] || food.image; // Update primary image if necessary
+    await food.save();
+
+    await logAdminAction(
+      'UPLOAD_FOOD_IMAGES',
+      'Food',
+      food._id,
+      `Uploaded ${foodImages.length} images for food ${food.name}`,
+      req.user.userId
+    );
+
+    console.log(`Uploaded ${foodImages.length} images for food: ${food.name}`);
+    res.status(200).json({ message: 'Images uploaded successfully', images: food.images });
+  } catch (error) {
+    logger.error('Upload food images error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Update Food Category
 const updateCategory = async (req, res) => {
   const { id } = req.params;
   const { name } = req.body;
 
   try {
-    // Validate input
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({ message: 'Invalid category ID' });
     }
@@ -313,27 +407,23 @@ const updateCategory = async (req, res) => {
       return res.status(400).json({ message: 'Category name must be at least 3 characters' });
     }
 
-    // Find the category
     const category = await Category.findById(id);
     if (!category || category.restaurantId.toString() !== req.user.restaurantId.toString()) {
       return res.status(403).json({ message: 'Unauthorized to update this category' });
     }
 
-    // Check if the new category name already exists for this restaurant
     const existingCategory = await Category.findOne({
       name,
       restaurantId: req.user.restaurantId,
-      _id: { $ne: id }, // Exclude the current category
+      _id: { $ne: id },
     });
     if (existingCategory) {
       return res.status(400).json({ message: 'Category name already exists for this restaurant' });
     }
 
-    // Update the category
     category.name = name;
     await category.save();
 
-    // Log audit action
     await logAdminAction(
       'UPDATE_CATEGORY',
       'Category',
@@ -349,6 +439,7 @@ const updateCategory = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
 // Delete Food Category
 const deleteCategory = async (req, res) => {
   const { id } = req.params;
@@ -363,7 +454,6 @@ const deleteCategory = async (req, res) => {
       return res.status(403).json({ message: 'Unauthorized to delete this category' });
     }
 
-    // Check if category is associated with any food items
     const foodCount = await Food.countDocuments({ category: id });
     if (foodCount > 0) {
       return res.status(400).json({ message: 'Cannot delete category with associated food items' });
@@ -428,7 +518,7 @@ const getRestaurantOrders = async (req, res) => {
 
     const orders = await Order.find(query)
       .populate('userId', 'name email')
-      .populate('items.productId', 'name price')
+      .populate('items.productId', 'name price image images')
       .sort(sort)
       .limit(50);
 
@@ -623,6 +713,8 @@ const getRestaurantAnalytics = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
+
+// Get All Categories
 const getAllCategories = async (req, res) => {
   try {
     const categories = await Category.find({
@@ -647,8 +739,8 @@ module.exports = {
   getRestaurantDetails,
   updateRestaurant,
   addCategory,
-  updateCategory, 
-  deleteCategory,// Add this line
+  updateCategory,
+  deleteCategory,
   addFood,
   getAllCategories,
   updateFood,
@@ -657,5 +749,7 @@ module.exports = {
   acceptOrder,
   rejectOrder,
   updateRestaurantOrderStatus,
-  getRestaurantAnalytics
+  getRestaurantAnalytics,
+  uploadRestaurantImages,
+  uploadFoodImages
 };

@@ -6,6 +6,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
+const path = require('path'); // Add path module
 const userRoutes = require('./routes/userRoutes');
 const foodRoutes = require('./routes/foodRoutes');
 const adminRoutes = require('./routes/adminRoutes');
@@ -16,7 +17,7 @@ const restaurantRoutes = require('./routes/restaurantRoutes');
 const Discount = require('./models/Discount');
 const Order = require('./models/Order');
 const Product = require('./models/Product');
-const AppUser = require('./models/AppUser'); // Use AppUser instead of User
+const AppUser = require('./models/AppUser');
 const Food = require('./models/Food');
 const Comment = require('./models/Comment');
 const Rating = require('./models/Rating');
@@ -47,6 +48,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve static files
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -65,13 +67,12 @@ io.use(async (socket, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    // Prioritize AppUser for all users (including admins)
-    const user = await AppUser.findById(decoded.userId).select('isAdmin isDeleted role');
+    const user = await AppUser.findById(decoded.userId).select('isAdmin isDeleted role restaurantId');
     if (!user || user.isDeleted) {
       return next(new Error('Authentication error: User not found or deactivated'));
     }
 
-    socket.user = { userId: decoded.userId, isAdmin: user.isAdmin, role: user.role };
+    socket.user = { userId: decoded.userId, isAdmin: user.isAdmin, role: user.role, restaurantId: user.restaurantId };
     next();
   } catch (error) {
     console.error('Socket.IO auth error:', error.message, error.stack);
@@ -83,13 +84,11 @@ io.use(async (socket, next) => {
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}, User: ${socket.user.userId}, Role: ${socket.user.role}`);
 
-  // Join user-specific room
   socket.join(`user:${socket.user.userId}`);
   if (socket.user.isAdmin) {
     socket.join('admin');
   }
 
-  // Handle support message from user or admin
   socket.on('supportMessage', async (data) => {
     try {
       const { content } = data;
@@ -98,17 +97,14 @@ io.on('connection', (socket) => {
         return;
       }
 
-      // Sanitize content
       const sanitizedContent = content.trim().substring(0, 1000);
 
-      // Save message to database
       const message = await Message.create({
         userId: socket.user.userId,
         senderType: socket.user.isAdmin ? 'admin' : 'user',
         content: sanitizedContent
       });
 
-      // Emit to admin room and user
       const messageData = {
         _id: message._id,
         userId: message.userId,
@@ -121,7 +117,6 @@ io.on('connection', (socket) => {
       io.to('admin').emit('supportMessage', messageData);
       io.to(`user:${socket.user.userId}`).emit('supportMessage', messageData);
 
-      // Log action
       await AuditLog.create({
         action: 'Send Support Message',
         entity: 'Message',
@@ -135,7 +130,6 @@ io.on('connection', (socket) => {
     }
   });
 
-  // Handle disconnect
   socket.on('disconnect', () => {
     console.log(`Socket disconnected: ${socket.id}`);
   });
