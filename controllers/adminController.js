@@ -232,8 +232,12 @@ const createRestaurantWithAdmin = async (req, res) => {
       return res.status(400).json({ message: 'restaurantData and adminData are required' });
     }
 
-    const { name, description, address, phone, email, logo } = restaurantData;
-    const { adminName, adminEmail, adminPassword, adminPhone } = adminData;
+    // Parse JSON strings if sent as form-data
+    const parsedRestaurantData = typeof restaurantData === 'string' ? JSON.parse(restaurantData) : restaurantData;
+    const parsedAdminData = typeof adminData === 'string' ? JSON.parse(adminData) : adminData;
+
+    const { name, description, address, phone, email, logo } = parsedRestaurantData;
+    const { adminName, adminEmail, adminPassword, adminPhone, profileImage } = parsedAdminData;
 
     // Validate restaurant data
     if (!name || !description || !address || !phone || !email) {
@@ -256,6 +260,18 @@ const createRestaurantWithAdmin = async (req, res) => {
       return res.status(400).json({ message: 'Admin email or phone already in use' });
     }
 
+    // Handle logo: use uploaded file if available, else use provided URL or default
+    let logoPath = logo || 'https://example.com/default-logo.png';
+    if (req.files && req.files.logo && req.files.logo[0]) {
+      logoPath = `/uploads/restaurants/${req.files.logo[0].filename}`;
+    }
+
+    // Handle profileImage: use uploaded file if available, else use provided URL or default
+    let profileImagePath = profileImage || 'https://example.com/default-profile.png';
+    if (req.files && req.files.profileImage && req.files.profileImage[0]) {
+      profileImagePath = `/uploads/users/${req.files.profileImage[0].filename}`;
+    }
+
     // Create restaurant
     const restaurant = new Restaurant({
       name,
@@ -263,7 +279,7 @@ const createRestaurantWithAdmin = async (req, res) => {
       address,
       phone,
       email,
-      logo: logo || 'https://example.com/default-logo.png',
+      logo: logoPath,
       createdBy: req.user.userId,
       isActive: true,
     });
@@ -279,7 +295,7 @@ const createRestaurantWithAdmin = async (req, res) => {
       role: 'restaurant_admin',
       restaurantId: restaurant._id,
       isAdmin: true,
-      profileImage: 'https://example.com/default-profile.png',
+      profileImage: profileImagePath, // Use the determined profileImage path
       loyaltyPoints: 0,
       addresses: [],
       orders: [],
