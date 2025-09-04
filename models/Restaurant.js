@@ -36,6 +36,7 @@ const restaurantSchema = new mongoose.Schema({
     type: String,
     default: 'https://example.com/default-logo.png'
   },
+  images: [{ type: String }], // Added for multiple images
   isActive: {
     type: Boolean,
     default: true

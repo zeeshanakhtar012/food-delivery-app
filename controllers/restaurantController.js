@@ -14,16 +14,16 @@ const logger = winston.createLogger({
 });
 
 // Log admin action
-const logAdminAction = async (action, entity, entityId, details, performedBy) => {
+async function logAdminAction(action, entity, entityId, details, performedBy) {
   try {
     await AuditLog.create({ action, entity, entityId, details, performedBy });
   } catch (error) {
     logger.error('Audit log error', { error: error.message, stack: error.stack });
   }
-};
+}
 
 // Validate restaurant input
-const validateRestaurantInput = (data) => {
+function validateRestaurantInput(data) {
   const errors = [];
   if (!data.name || data.name.trim().length < 3) errors.push('Restaurant name must be at least 3 characters');
   if (!data.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) errors.push('Invalid email format');
@@ -32,10 +32,10 @@ const validateRestaurantInput = (data) => {
     errors.push('Complete address is required');
   }
   return errors;
-};
+}
 
 // Create restaurant (super admin only)
-exports.createRestaurant = async (req, res) => {
+async function createRestaurant(req, res) {
   const { name, description, address, phone, email, logo } = req.body;
 
   try {
@@ -70,10 +70,10 @@ exports.createRestaurant = async (req, res) => {
     logger.error('Create restaurant error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
-};
+}
 
 // Update restaurant (super admin only)
-exports.updateRestaurant = async (req, res) => {
+async function updateRestaurant(req, res) {
   const { id } = req.params;
   const { name, description, address, phone, email, logo, isActive } = req.body;
 
@@ -104,12 +104,12 @@ exports.updateRestaurant = async (req, res) => {
     logger.error('Update restaurant error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
-};
+}
 
 // Delete restaurant (super admin only)
-exports.deleteRestaurant = async (req, res) => {
+async function deleteRestaurant(req, res) {
   const { id } = req.params;
-console.log('Delete restaurant endpoint hit:', req.params);
+  console.log('Delete restaurant endpoint hit:', req.params);
   try {
     if (!mongoose.isValidObjectId(id)) return res.status(400).json({ message: 'Invalid restaurant ID' });
 
@@ -129,12 +129,61 @@ console.log('Delete restaurant endpoint hit:', req.params);
     logger.error('Delete restaurant error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
-};
+}
+
+// Get Restaurant Images
+async function getRestaurantImages(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid restaurant ID' });
+    }
+
+    const restaurant = await Restaurant.findById(id).select('logo images');
+    if (!restaurant || !restaurant.isActive) {
+      return res.status(404).json({ message: 'Restaurant not found or inactive' });
+    }
+
+    res.status(200).json({
+      message: 'Restaurant images retrieved successfully',
+      images: restaurant.images.length > 0 ? restaurant.images : [restaurant.logo]
+    });
+  } catch (error) {
+    logger.error('Get restaurant images error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+}
+
+// Get Restaurant Details
+async function getRestaurantDetails(req, res) {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid restaurant ID' });
+    }
+
+    const restaurant = await Restaurant.findById(id)
+      .select('name description address phone email logo images isActive')
+      .populate('createdBy', 'name email');
+
+    if (!restaurant || !restaurant.isActive) {
+      return res.status(404).json({ message: 'Restaurant not found or inactive' });
+    }
+
+    res.status(200).json({
+      message: 'Restaurant details retrieved successfully',
+      restaurant
+    });
+  } catch (error) {
+    logger.error('Get restaurant details error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+}
 
 // Create category (super admin or restaurant admin)
-exports.createCategory = async (req, res) => {
+async function createCategory(req, res) {
   const { name, restaurantId } = req.body;
-console.log('Create category endpoint hit:', req.body);
+  console.log('Create category endpoint hit:', req.body);
   try {
     if (!name || name.trim().length < 3) return res.status(400).json({ message: 'Category name must be at least 3 characters' });
     if (!mongoose.isValidObjectId(restaurantId)) return res.status(400).json({ message: 'Invalid restaurant ID' });
@@ -161,10 +210,10 @@ console.log('Create category endpoint hit:', req.body);
     logger.error('Create category error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
-};
+}
 
 // Update category (super admin or restaurant admin)
-exports.updateCategory = async (req, res) => {
+async function updateCategory(req, res) {
   const { id } = req.params;
   const { name, isActive } = req.body;
   console.log('Update category endpoint hit:', req.params, req.body);
@@ -198,10 +247,10 @@ exports.updateCategory = async (req, res) => {
     logger.error('Update category error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
-};
+}
 
 // Delete category (super admin or restaurant admin)
-exports.deleteCategory = async (req, res) => {
+async function deleteCategory(req, res) {
   const { id } = req.params;
   console.log('Delete category endpoint hit:', req.params);
   try {
@@ -229,4 +278,18 @@ exports.deleteCategory = async (req, res) => {
     logger.error('Delete category error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
+}
+
+// Export all functions at once
+module.exports = {
+  createRestaurant,
+  updateRestaurant,
+  deleteRestaurant,
+  getRestaurantImages,
+  getRestaurantDetails,
+  createCategory,
+  updateCategory,
+  deleteCategory,
+  logAdminAction,
+  validateRestaurantInput
 };

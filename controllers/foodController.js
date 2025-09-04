@@ -86,51 +86,17 @@ const logAction = async (action, entity, entityId, details, performedBy) => {
   }
 };
 
-// Get all foods (public)
-exports.getAllFoods = async (req, res) => {
-  try {
-    const { category, search, minPrice, maxPrice, sortBy = 'createdAt', order = 'desc' } = req.query;
-    const query = { isAvailable: true };
-
-    if (category) {
-      // If category is provided, assume it's a name and look up the ObjectId
-      const categoryDoc = await Category.findOne({ name: category, isActive: true });
-      if (!categoryDoc) {
-        return res.status(400).json({ message: 'Category not found or inactive' });
-      }
-      query.category = categoryDoc._id;
-    }
-    if (search) query.$text = { $search: search };
-    if (minPrice) query.price = { ...query.price, $gte: Number(minPrice) };
-    if (maxPrice) query.price = { ...query.price, $lte: Number(maxPrice) };
-
-    const sort = { [sortBy]: order === 'asc' ? 1 : -1 };
-
-    const foods = await Food.find(query)
-      .select('name description category price image averageRating ratingCount preparationTime restaurantId city')
-      .populate('category', 'name')
-      .sort(sort)
-      .limit(50);
-
-    res.status(200).json({
-      message: 'Foods retrieved successfully',
-      count: foods.length,
-      foods
-    });
-  } catch (error) {
-    logger.error('Get foods error', { error: error.message, stack: error.stack });
-    res.status(500).json({ message: 'Server error occurred', error: error.message });
-  }
-};
-
-// Get food details by ID (public)
-exports.getFoodDetails = async (req, res) => {
+// Get food details by ID (public, secured with restaurantId)
+const getFoodDetails = async (req, res) => {
   console.log('getFoodDetails endpoint hit with id:', req.params.id, 'at', new Date());
   try {
-    const { id } = req.params;
+    const { id, restaurantId } = req.params;
 
     if (!mongoose.isValidObjectId(id)) {
       return res.status(400).json({ message: 'Invalid food ID' });
+    }
+    if (!mongoose.isValidObjectId(restaurantId)) {
+      return res.status(400).json({ message: 'Invalid restaurant ID' });
     }
 
     const food = await Food.findById(id)
@@ -146,7 +112,7 @@ exports.getFoodDetails = async (req, res) => {
       })
       .populate('category', 'name');
 
-    if (!food) {
+    if (!food || food.restaurantId.toString() !== restaurantId) {
       return res.status(404).json({ message: 'Food not found' });
     }
 
@@ -161,7 +127,7 @@ exports.getFoodDetails = async (req, res) => {
 };
 
 // Add food (admin only)
-exports.addFood = async (req, res) => {
+const addFood = async (req, res) => {
   console.log('Add food endpoint hit:', req.body);
   const { name, description, category, price, image, ingredients, nutritionalInfo, preparationTime, isAvailable, restaurantId, city } = req.body;
 
@@ -218,7 +184,7 @@ exports.addFood = async (req, res) => {
 };
 
 // Update food (admin only)
-exports.updateFood = async (req, res) => {
+const updateFood = async (req, res) => {
   console.log('Update food endpoint hit:', req.params.id, req.body);
   const { id } = req.params;
   const updateData = req.body;
@@ -259,7 +225,7 @@ exports.updateFood = async (req, res) => {
 };
 
 // Delete food (admin only)
-exports.deleteFood = async (req, res) => {
+const deleteFood = async (req, res) => {
   console.log('Delete food endpoint hit:', req.params.id);
   const { id } = req.params;
 
@@ -292,7 +258,7 @@ exports.deleteFood = async (req, res) => {
 };
 
 // Update food prices by category (admin only)
-exports.updatePricesByCategory = async (req, res) => {
+const updatePricesByCategory = async (req, res) => {
   console.log('Update prices by category endpoint hit:', req.body);
   const { category, priceAdjustment, adjustmentType } = req.body;
 
@@ -336,7 +302,7 @@ exports.updatePricesByCategory = async (req, res) => {
 };
 
 // Add item to cart
-exports.addToCart = async (req, res) => {
+const addToCart = async (req, res) => {
   console.log('Add to cart endpoint hit:', req.body);
   const { foodId, quantity } = req.body;
 
@@ -395,8 +361,31 @@ exports.addToCart = async (req, res) => {
   }
 };
 
+// Get Food Images
+const getFoodImages = async (req, res) => {
+  try {
+    const { id } = req.params;
+    if (!mongoose.isValidObjectId(id)) {
+      return res.status(400).json({ message: 'Invalid food ID' });
+    }
+
+    const food = await Food.findById(id).select('image images');
+    if (!food) {
+      return res.status(404).json({ message: 'Food not found' });
+    }
+
+    res.status(200).json({
+      message: 'Food images retrieved successfully',
+      images: food.images.length > 0 ? food.images : [food.image]
+    });
+  } catch (error) {
+    logger.error('Get food images error', { error: error.message, stack: error.stack });
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Get cart
-exports.getCart = async (req, res) => {
+const getCart = async (req, res) => {
   console.log('getCart endpoint hit for user:', req.user?.userId, 'at', new Date());
   if (!req.user || !req.user.userId) {
     return res.status(401).json({ message: 'Unauthorized access' });
@@ -429,7 +418,7 @@ exports.getCart = async (req, res) => {
 };
 
 // Update cart item quantity
-exports.updateCartItem = async (req, res) => {
+const updateCartItem = async (req, res) => {
   console.log('Update cart item endpoint hit:', req.body);
   const { foodId, quantity } = req.body;
 
@@ -480,7 +469,7 @@ exports.updateCartItem = async (req, res) => {
 };
 
 // Remove item from cart
-exports.removeCartItem = async (req, res) => {
+const removeCartItem = async (req, res) => {
   console.log('Remove cart item endpoint hit:', req.params);
   const { foodId } = req.params;
 
@@ -523,7 +512,7 @@ exports.removeCartItem = async (req, res) => {
 };
 
 // Clear cart
-exports.clearCart = async (req, res) => {
+const clearCart = async (req, res) => {
   console.log('Clear cart endpoint hit');
   try {
     const cart = await Cart.findOne({ userId: req.user.userId });
@@ -557,7 +546,7 @@ exports.clearCart = async (req, res) => {
 };
 
 // Place order using cart
-exports.placeOrder = async (req, res) => {
+const placeOrder = async (req, res) => {
   console.log('Place order endpoint hit:', req.body);
   const { deliveryAddressId, deliveryAddress, paymentMethod, items } = req.body;
 
@@ -638,7 +627,6 @@ exports.placeOrder = async (req, res) => {
     user.loyaltyPoints += Math.floor(totalAmount / 10);
     await user.save();
 
-    // Clear cart after order placement
     const cart = await Cart.findOne({ userId: req.user.userId });
     if (cart) {
       cart.items = [];
@@ -672,7 +660,7 @@ exports.placeOrder = async (req, res) => {
 };
 
 // Track order status
-exports.trackOrder = async (req, res) => {
+const trackOrder = async (req, res) => {
   console.log('Track order endpoint hit:', req.params);
   try {
     const { id } = req.params;
@@ -699,7 +687,7 @@ exports.trackOrder = async (req, res) => {
 };
 
 // Add food to favorites
-exports.addToFavorites = async (req, res) => {
+const addToFavorites = async (req, res) => {
   console.log('Add to favorites endpoint hit:', req.body);
   const { foodId } = req.body;
 
@@ -749,7 +737,7 @@ exports.addToFavorites = async (req, res) => {
 };
 
 // Remove food from favorites
-exports.removeFromFavorites = async (req, res) => {
+const removeFromFavorites = async (req, res) => {
   console.log('Remove from favorites endpoint hit:', req.params);
   const { foodId } = req.params;
 
@@ -788,8 +776,9 @@ exports.removeFromFavorites = async (req, res) => {
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
 };
+
 // Get all unique category names (public)
-exports.getUniqueCategories = async (req, res) => {
+const getUniqueCategories = async (req, res) => {
   try {
     const categories = await Category.aggregate([
       { $match: { isActive: true } },
@@ -809,7 +798,7 @@ exports.getUniqueCategories = async (req, res) => {
 };
 
 // Get all restaurants (public)
-exports.getAllRestaurants = async (req, res) => {
+const getAllRestaurants = async (req, res) => {
   try {
     const { city, search } = req.query;
     const query = { isActive: true };
@@ -830,7 +819,7 @@ exports.getAllRestaurants = async (req, res) => {
 };
 
 // Get categories by restaurant ID (public)
-exports.getCategoriesByRestaurant = async (req, res) => {
+const getCategoriesByRestaurant = async (req, res) => {
   const { restaurantId } = req.params;
   try {
     if (!mongoose.isValidObjectId(restaurantId)) {
@@ -856,7 +845,7 @@ exports.getCategoriesByRestaurant = async (req, res) => {
 };
 
 // Get foods by restaurant and category (public)
-exports.getFoodsByRestaurantAndCategory = async (req, res) => {
+const getFoodsByRestaurantAndCategory = async (req, res) => {
   const { restaurantId, categoryId } = req.params;
   try {
     if (!mongoose.isValidObjectId(restaurantId)) {
@@ -892,7 +881,7 @@ exports.getFoodsByRestaurantAndCategory = async (req, res) => {
 };
 
 // Get user favorites
-exports.getFavorites = async (req, res) => {
+const getFavorites = async (req, res) => {
   console.log('Get favorites endpoint hit');
   try {
     const user = await User.findById(req.user.userId)
@@ -918,4 +907,29 @@ exports.getFavorites = async (req, res) => {
     logger.error('Get favorites error', { error: error.message, stack: error.stack });
     res.status(500).json({ message: 'Server error occurred', error: error.message });
   }
+};
+
+module.exports = {
+  validateFoodInput,
+  logAction,
+  getFoodDetails,
+  addFood,
+  updateFood,
+  deleteFood,
+  updatePricesByCategory,
+  addToCart,
+  getFoodImages,
+  getCart,
+  updateCartItem,
+  removeCartItem,
+  clearCart,
+  placeOrder,
+  trackOrder,
+  addToFavorites,
+  removeFromFavorites,
+  getUniqueCategories,
+  getAllRestaurants,
+  getCategoriesByRestaurant,
+  getFoodsByRestaurantAndCategory,
+  getFavorites
 };

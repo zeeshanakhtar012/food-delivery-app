@@ -1,7 +1,7 @@
+// foodRoutes.js (updated)
 const express = require('express');
 const router = express.Router();
 const {
-  getAllFoods,
   getFoodDetails,
   placeOrder,
   addToCart,
@@ -26,12 +26,11 @@ const authMiddleware = require('../middleware/authMiddleware');
 const adminMiddleware = require('../middleware/adminMiddleware');
 
 // Public routes
-router.get('/', getAllFoods);
 router.get('/categories', getUniqueCategories);
 router.get('/restaurants', getAllRestaurants);
 router.get('/restaurants/:restaurantId/categories', getCategoriesByRestaurant);
 router.get('/restaurants/:restaurantId/categories/:categoryId/foods', getFoodsByRestaurantAndCategory);
-router.get('/:id', getFoodDetails); // Moved after specific routes
+router.get('/restaurants/:restaurantId/foods/:id', getFoodDetails); // Secured with restaurantId
 
 // Protected routes (user)
 router.post('/order', authMiddleware, placeOrder);

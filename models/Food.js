@@ -26,6 +26,7 @@ const foodSchema = new mongoose.Schema({
     type: String,
     default: 'https://images.unsplash.com/photo-1504674900247-0877df9cc926?q=80&w=2070&auto=format&fit=crop'
   },
+  images: [{ type: String }], // Added for multiple images
   ingredients: [{ type: String, trim: true }],
   nutritionalInfo: {
     calories: { type: Number, default: 0 },
@@ -38,7 +39,7 @@ const foodSchema = new mongoose.Schema({
     default: true
   },
   preparationTime: {
-    type: Number, // in minutes
+    type: Number,
     default: 15
   },
   averageRating: {
@@ -66,7 +67,6 @@ const foodSchema = new mongoose.Schema({
   toObject: { virtuals: true }
 });
 
-// Virtual for comments
 foodSchema.virtual('comments', {
   ref: 'Comment',
   foreignField: 'foodId',
