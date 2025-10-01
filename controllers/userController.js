@@ -44,14 +44,15 @@ const TokenBlacklist = mongoose.model('TokenBlacklist', tokenBlacklistSchema);
 // Input validation helper for registration
 const validateRegisterInput = (data) => {
   const errors = [];
+  console.log('Validating input:', { password: data.password, length: data.password?.length });
   if (!data.name || data.name.trim().length < 3) {
     errors.push('Name must be at least 3 characters long');
   }
   if (!data.email || !/^\S+@\S+\.\S+$/.test(data.email)) {
     errors.push('Invalid email format');
   }
-  if (!data.password || data.password.length < 8) {
-    errors.push('Password must be at least 8 characters');
+  if (!data.password || data.password.length < 6) {
+    errors.push('Password must be at least 6 characters');
   }
   if (!data.phone || !/^\+?[1-9]\d{1,14}$/.test(data.phone)) {
     errors.push('Invalid phone number');
@@ -115,7 +116,7 @@ const validatePreferencesInput = (data) => {
 };
 
 // Register user
-exports.registerUser = async (req, res) => {
+const registerUser = async (req, res) => {
   console.log('Register endpoint hit:', req.body);
   const { name, email, password, phone, dateOfBirth, address, bio, preferences, role, isAdmin, restaurantId } = req.body;
 
@@ -123,17 +124,15 @@ exports.registerUser = async (req, res) => {
     // Validate input
     const errors = validateRegisterInput(req.body);
     if (errors.length > 0) {
+      console.log('Validation errors:', errors);
       return res.status(400).json({ errors });
     }
 
     // Check if user exists
-    const userExists = await User.findOne({ $or: [{ email }, { phone }] });
+    const userExists = await User.findOne({ $or: [{ email: email.toLowerCase() }, { phone }] });
     if (userExists) {
       return res.status(400).json({ message: 'Email or phone already registered' });
     }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
 
     // Prepare address
     const addressData = {
@@ -146,11 +145,11 @@ exports.registerUser = async (req, res) => {
       coordinates: address.coordinates || [0, 0]
     };
 
-    // Create user
+    // Create user (password will be hashed by pre-save middleware)
     const user = await User.create({
       name,
-      email,
-      password: hashedPassword,
+      email: email.toLowerCase(),
+      password, // Pass plain password
       phone,
       dateOfBirth: dateOfBirth ? new Date(dateOfBirth) : null,
       addresses: [addressData],
@@ -164,10 +163,12 @@ exports.registerUser = async (req, res) => {
           push: true
         }
       },
-      role: role || 'user', // Default to 'user' if not provided
-      isAdmin: isAdmin || false, // Default to false if not provided
-      restaurantId: restaurantId || null // Default to null if not provided
+      role: role || 'user',
+      isAdmin: isAdmin || false,
+      restaurantId: restaurantId || null
     });
+
+    console.log('User saved with password hash:', user.password);
 
     // Generate JWT
     const token = jwt.sign(
@@ -201,7 +202,7 @@ exports.registerUser = async (req, res) => {
 };
 
 // Login user
-exports.loginUser = async (req, res) => {
+const loginUser = async (req, res) => {
   console.log('Login endpoint hit:', req.body);
   const { email, password } = req.body;
 
@@ -210,12 +211,18 @@ exports.loginUser = async (req, res) => {
       return res.status(400).json({ message: 'Email and password are required' });
     }
 
-    const user = await User.findOne({ email, isDeleted: false }).select('+password');
+    console.log('Searching for user with email:', email);
+    const user = await User.findOne({ email: { $regex: `^${email}$`, $options: 'i' }, isDeleted: false }).select('+password');
     if (!user) {
+      console.log('User not found for email:', email);
       return res.status(400).json({ message: 'Invalid email or password' });
     }
 
-    const isMatch = await bcrypt.compare(password, user.password);
+    console.log('User found:', user.email);
+    console.log('Stored password hash:', user.password);
+    console.log('Input password:', password, 'Length:', password.length);
+    const isMatch = await user.comparePassword(password); // Use model method
+    console.log('Password match result:', isMatch);
     if (!isMatch) {
       return res.status(401).json({ message: 'Invalid email or password' });
     }
@@ -246,13 +253,13 @@ exports.loginUser = async (req, res) => {
       }
     });
   } catch (error) {
-    logger.error('Login error', { error: error.message, stack: error.stack });
+    console.error('Login error:', error.message, error.stack);
     res.status(500).json({ message: 'Server error occurred' });
   }
 };
 
 // Get user profile
-exports.getUserProfile = async (req, res) => {
+const getUserProfile = async (req, res) => {
   try {
     console.log('User ID:', req.user.userId);
     const user = await User.findOne({ _id: req.user.userId, isDeleted: false })
@@ -320,7 +327,7 @@ exports.getUserProfile = async (req, res) => {
 };
 
 // Update user profile
-exports.updateUserProfile = async (req, res) => {
+const updateUserProfile = async (req, res) => {
   console.log('Update profile endpoint hit:', req.body);
   const { name, phone, dateOfBirth, addresses, bio, preferences, profileImage } = req.body;
 
@@ -406,7 +413,7 @@ exports.updateUserProfile = async (req, res) => {
 };
 
 // Change password
-exports.changePassword = async (req, res) => {
+const changePassword = async (req, res) => {
   console.log('Change password endpoint hit:', req.body);
   const { currentPassword, newPassword } = req.body;
 
@@ -439,7 +446,7 @@ exports.changePassword = async (req, res) => {
 };
 
 // Delete account (soft delete)
-exports.deleteAccount = async (req, res) => {
+const deleteAccount = async (req, res) => {
   console.log('Delete account endpoint hit:', req.user.userId);
   try {
     const user = await User.findOneAndUpdate(
@@ -460,7 +467,7 @@ exports.deleteAccount = async (req, res) => {
 };
 
 // Add address
-exports.addAddress = async (req, res) => {
+const addAddress = async (req, res) => {
   console.log('Add address endpoint hit:', req.body);
   const { street, city, state, postalCode, country, coordinates, isDefault } = req.body;
 
@@ -510,7 +517,7 @@ exports.addAddress = async (req, res) => {
 };
 
 // Remove address
-exports.removeAddress = async (req, res) => {
+const removeAddress = async (req, res) => {
   console.log('Remove address endpoint hit:', req.params);
   const { addressId } = req.params;
 
@@ -555,7 +562,7 @@ exports.removeAddress = async (req, res) => {
 };
 
 // Set default address
-exports.setDefaultAddress = async (req, res) => {
+const setDefaultAddress = async (req, res) => {
   console.log('Set default address endpoint hit:', req.params);
   const { addressId } = req.params;
 
@@ -595,7 +602,7 @@ exports.setDefaultAddress = async (req, res) => {
 };
 
 // Update preferences
-exports.updatePreferences = async (req, res) => {
+const updatePreferences = async (req, res) => {
   console.log('Update preferences endpoint hit:', req.body);
   const { dietary, notifications } = req.body;
 
@@ -627,7 +634,7 @@ exports.updatePreferences = async (req, res) => {
 };
 
 // Logout user
-exports.logoutUser = async (req, res) => {
+const logoutUser = async (req, res) => {
   console.log('Logout endpoint hit:', req.user.userId);
   try {
     const token = req.header('Authorization')?.replace('Bearer ', '');
@@ -658,5 +665,17 @@ exports.logoutUser = async (req, res) => {
   }
 };
 
-// Export TokenBlacklist model for use in middleware
-exports.TokenBlacklist = TokenBlacklist;
+module.exports = {
+  registerUser,
+  loginUser,
+  getUserProfile,
+  updateUserProfile,
+  changePassword,
+  deleteAccount,
+  addAddress,
+  removeAddress,
+  setDefaultAddress,
+  updatePreferences,
+  logoutUser,
+  TokenBlacklist
+};
