@@ -1,3 +1,4 @@
+// server.js
 require('dotenv').config();
 const express = require('express');
 const mongoose = require('mongoose');
@@ -6,12 +7,13 @@ const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
-const path = require('path'); // Add path module
+const path = require('path');
 const userRoutes = require('./routes/userRoutes');
 const foodRoutes = require('./routes/foodRoutes');
-const adminRoutes = require('./routes/adminRoutes');
+const superAdminRoutes = require('./routes/superAdminRoutes'); // UPDATED
 const supportRoutes = require('./routes/supportRoutes');
 const restaurantRoutes = require('./routes/restaurantRoutes');
+const restaurantOwnerRoutes = require('./routes/restaurantOwnerRoutes');
 
 // Explicitly import models
 const Discount = require('./models/Discount');
@@ -48,7 +50,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
-app.use('/uploads', express.static(path.join(__dirname, 'uploads'))); // Serve static files
+app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
 
 // Connect to MongoDB
 mongoose.connect(process.env.MONGO_URI, {
@@ -80,7 +82,6 @@ io.use(async (socket, next) => {
   }
 });
 
-// Socket.IO connection handler
 io.on('connection', (socket) => {
   console.log(`Socket connected: ${socket.id}, User: ${socket.user.userId}, Role: ${socket.user.role}`);
 
@@ -139,7 +140,8 @@ io.on('connection', (socket) => {
 app.use('/api/users', userRoutes);
 app.use('/api/foods', foodRoutes);
 app.use('/api/restaurants', restaurantRoutes);
-app.use('/api/admin', adminRoutes);
+app.use('/api/restaurant-owner', restaurantOwnerRoutes);
+app.use('/api/superadmin', superAdminRoutes); // UPDATED
 app.use('/api/support', supportRoutes);
 
 // Default route
