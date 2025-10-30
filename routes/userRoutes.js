@@ -21,13 +21,13 @@ router.post('/login', loginUser);
 
 // Protected routes
 router.get('/profile', authMiddleware, getUserProfile);
-router.put('/profile', authMiddleware, updateUserProfile);
-router.patch('/change-password', authMiddleware, changePassword);
+router.post('/profile', authMiddleware, updateUserProfile);
+router.post('/change-password', authMiddleware, changePassword);
 router.delete('/account', authMiddleware, deleteAccount);
 router.post('/addresses', authMiddleware, addAddress);
 router.delete('/addresses/:addressId', authMiddleware, removeAddress);
-router.patch('/addresses/:addressId/default', authMiddleware, setDefaultAddress);
-router.patch('/preferences', authMiddleware, updatePreferences);
+router.post('/addresses/:addressId/default', authMiddleware, setDefaultAddress);
+router.post('/preferences', authMiddleware, updatePreferences);
 router.post('/logout', authMiddleware, logoutUser);
 
 module.exports = router;

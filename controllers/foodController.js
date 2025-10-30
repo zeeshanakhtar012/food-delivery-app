@@ -832,7 +832,7 @@ const getCategoriesByRestaurant = async (req, res) => {
     const categories = await Category.find({
       restaurantId,
       isActive: true
-    }).select('_id name');
+    }).select('_id name image images');
     res.status(200).json({
       message: 'Categories retrieved successfully',
       count: categories.length,
