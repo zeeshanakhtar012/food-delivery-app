@@ -1,17 +1,17 @@
-const { NavLink } = ReactRouterDOM;
+import { NavLink } from 'react-router-dom';
 
-function Sidebar({ isOpen, setIsOpen }) {
+export default function Sidebar({ isOpen, setIsOpen }) {
   const links = [
     { name: 'Dashboard', path: '/', icon: 'home' },
-    { name: 'Users', path: '/users', icon: 'users' },
+    { name: 'Restaurant', path: '/restaurant', icon: 'building-storefront' },
+    { name: 'Update Restaurant', path: '/restaurant/update', icon: 'pencil' },
+    { name: 'Categories', path: '/categories', icon: 'folder' },
     { name: 'Foods', path: '/foods', icon: 'cake' },
     { name: 'Orders', path: '/orders', icon: 'shopping-cart' },
-    { name: 'Discounts', path: '/discounts', icon: 'tag' },
-    { name: 'Advertisements', path: '/advertisements', icon: 'megaphone' },
-    { name: 'Notifications', path: '/notifications', icon: 'bell' },
-    { name: 'Support', path: '/support', icon: 'chat-bubble-left-right' },
-    { name: 'Audit Logs', path: '/audit-logs', icon: 'document-text' },
-    { name: 'Settings', path: '/settings', icon: 'cog' },
+    { name: 'Analytics', path: '/analytics', icon: 'chart-bar' },
+    { name: 'Reports', path: '/reports', icon: 'document-chart-bar' },
+    { name: 'Expenses', path: '/expenses', icon: 'currency-dollar' },
+    { name: 'Images', path: '/restaurant/images', icon: 'photo' },
   ];
 
   return (
