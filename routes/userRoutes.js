@@ -1,33 +1,27 @@
 const express = require('express');
 const router = express.Router();
-const { 
-  registerUser, 
-  loginUser, 
-  getUserProfile, 
-  updateUserProfile, 
-  changePassword,
-  deleteAccount,
-  addAddress,
-  removeAddress,
-  setDefaultAddress,
-  updatePreferences,
-  logoutUser
-} = require('../controllers/userController');
-const authMiddleware = require('../middleware/authMiddleware');
+const userController = require('../controllers/userController');
+const { authenticate, authorize, requireRestaurantAccess } = require('../middleware/authMiddleware');
 
 // Public routes
-router.post('/register', registerUser);
-router.post('/login', loginUser);
+router.post('/register', userController.register);
+router.post('/login', userController.login);
 
-// Protected routes
-router.get('/profile', authMiddleware, getUserProfile);
-router.post('/profile', authMiddleware, updateUserProfile);
-router.post('/change-password', authMiddleware, changePassword);
-router.delete('/account', authMiddleware, deleteAccount);
-router.post('/addresses', authMiddleware, addAddress);
-router.delete('/addresses/:addressId', authMiddleware, removeAddress);
-router.post('/addresses/:addressId/default', authMiddleware, setDefaultAddress);
-router.post('/preferences', authMiddleware, updatePreferences);
-router.post('/logout', authMiddleware, logoutUser);
+// Protected routes - require user authentication
+router.use(authenticate);
+router.use(authorize('user'));
+router.use(requireRestaurantAccess);
+
+// Food browsing
+router.get('/foods', userController.getFoods);
+
+// Profile
+router.get('/profile', userController.getProfile);
+router.put('/profile', userController.updateProfile);
+
+// Order management
+router.post('/orders', userController.placeOrder);
+router.get('/orders', userController.getMyOrders);
+router.get('/orders/:id/track', userController.getOrderTracking);
 
 module.exports = router;

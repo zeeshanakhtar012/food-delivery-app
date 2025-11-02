@@ -1,5 +1,4 @@
-const fixEsm = require('fix-esm');
-var colorspace = fixEsm.require('@so-ric/colorspace').default;
+var colorspace = require('@so-ric/colorspace');
 
 /**
  * Prefix the messages with a colored namespace.

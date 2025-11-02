@@ -1,133 +1,192 @@
-// server.js
 require('dotenv').config();
 const express = require('express');
-const mongoose = require('mongoose');
 const morgan = require('morgan');
 const http = require('http');
 const { Server } = require('socket.io');
 const jwt = require('jsonwebtoken');
 const cors = require('cors');
 const path = require('path');
-const userRoutes = require('./routes/userRoutes');
-const foodRoutes = require('./routes/foodRoutes');
-const superAdminRoutes = require('./routes/superAdminRoutes'); // UPDATED
-const supportRoutes = require('./routes/supportRoutes');
-const restaurantRoutes = require('./routes/restaurantRoutes');
-const restaurantOwnerRoutes = require('./routes/restaurantOwnerRoutes');
 
-// Explicitly import models
-const Discount = require('./models/Discount');
-const Order = require('./models/Order');
-const Product = require('./models/Product');
-const AppUser = require('./models/AppUser');
-const Food = require('./models/Food');
-const Comment = require('./models/Comment');
-const Rating = require('./models/Rating');
-const AppConfig = require('./models/AppConfig');
-const Advertisement = require('./models/Advertisement');
-const Notification = require('./models/Notification');
-const AuditLog = require('./models/AuditLog');
-const Cart = require('./models/Cart');
-const Message = require('./models/Message');
+// Routes
+const superAdminRoutes = require('./routes/superAdminRoutes');
+const restaurantAdminRoutes = require('./routes/restaurantAdminRoutes');
+const userRoutes = require('./routes/userRoutes');
+const riderRoutes = require('./routes/riderRoutes');
+
+// Models for Socket.IO authentication
+const Admin = require('./models/PostgreSQL/Admin');
+const User = require('./models/PostgreSQL/User');
+const Rider = require('./models/PostgreSQL/Rider');
+const Restaurant = require('./models/PostgreSQL/Restaurant');
 
 const app = express();
 const server = http.createServer(app);
+
+// Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: 'http://localhost:5173',
-    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    methods: ['GET', 'POST'],
     credentials: true
   }
 });
+
+// Make io accessible to controllers
+app.set('io', io);
 
 const PORT = process.env.PORT || 5001;
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: process.env.FRONTEND_URL || 'http://localhost:5173',
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   credentials: true
 }));
 app.use(express.json());
 app.use(morgan('dev'));
-app.use('/uploads', express.static(path.join(__dirname, 'Uploads')));
+app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
-// Connect to MongoDB
-mongoose.connect(process.env.MONGO_URI, {
-  useNewUrlParser: true,
-  useUnifiedTopology: true
-})
-  .then(() => console.log('✅ MongoDB connected'))
-  .catch((err) => console.error('❌ MongoDB connection error:', err.message, err.stack));
+// Test database connection
+const { pool } = require('./config/db');
+pool.query('SELECT NOW()', (err, res) => {
+  if (err) {
+    console.error('❌ PostgreSQL connection error:', err);
+  } else {
+    console.log('✅ PostgreSQL connected successfully');
+  }
+});
 
 // Socket.IO authentication middleware
 io.use(async (socket, next) => {
   try {
-    const token = socket.handshake.auth.token;
+    const token = socket.handshake.auth.token || socket.handshake.headers.authorization?.replace('Bearer ', '');
     if (!token) {
       return next(new Error('Authentication error: Token missing'));
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    const user = await AppUser.findById(decoded.userId).select('isAdmin isDeleted role restaurantId');
-    if (!user || user.isDeleted) {
-      return next(new Error('Authentication error: User not found or deactivated'));
+    
+    // Check if restaurant is active (unless super admin)
+    if (decoded.role !== 'super_admin' && decoded.restaurant_id) {
+      const restaurant = await Restaurant.findById(decoded.restaurant_id);
+      if (!restaurant || !restaurant.is_active) {
+        return next(new Error('Restaurant account is frozen'));
+      }
     }
 
-    socket.user = { userId: decoded.userId, isAdmin: user.isAdmin, role: user.role, restaurantId: user.restaurantId };
+    // Get user details based on role
+    let userDetails = null;
+    if (decoded.role === 'super_admin' || decoded.role === 'restaurant_admin') {
+      const admin = await Admin.findById(decoded.id);
+      if (!admin) {
+        return next(new Error('User not found'));
+      }
+      userDetails = {
+        id: decoded.id,
+        role: decoded.role,
+        restaurant_id: decoded.restaurant_id
+      };
+    } else if (decoded.role === 'user') {
+      const user = await User.findById(decoded.id);
+      if (!user) {
+        return next(new Error('User not found'));
+      }
+      userDetails = {
+        id: decoded.id,
+        role: decoded.role,
+        restaurant_id: decoded.restaurant_id
+      };
+    } else if (decoded.role === 'rider') {
+      const rider = await Rider.findById(decoded.id);
+      if (!rider) {
+        return next(new Error('Rider not found'));
+      }
+      userDetails = {
+        id: decoded.id,
+        role: decoded.role,
+        restaurant_id: decoded.restaurant_id
+      };
+    }
+
+    socket.user = userDetails;
     next();
   } catch (error) {
-    console.error('Socket.IO auth error:', error.message, error.stack);
+    console.error('Socket.IO auth error:', error.message);
     next(new Error('Authentication error: Invalid token'));
   }
 });
 
+// Socket.IO connection handling
 io.on('connection', (socket) => {
-  console.log(`Socket connected: ${socket.id}, User: ${socket.user.userId}, Role: ${socket.user.role}`);
+  console.log(`Socket connected: ${socket.id}, User: ${socket.user.id}, Role: ${socket.user.role}`);
 
-  socket.join(`user:${socket.user.userId}`);
-  if (socket.user.isAdmin) {
+  // Join user-specific room
+  socket.join(`user:${socket.user.id}`);
+
+  // Join role-specific rooms
+  if (socket.user.role === 'super_admin' || socket.user.role === 'restaurant_admin') {
     socket.join('admin');
+    if (socket.user.restaurant_id) {
+      socket.join(`restaurant:${socket.user.restaurant_id}`);
+    }
   }
 
-  socket.on('supportMessage', async (data) => {
+  // Join order tracking room if user is viewing an order
+  socket.on('joinOrderRoom', (orderId) => {
+    socket.join(`order:${orderId}`);
+    console.log(`User ${socket.user.id} joined order room: ${orderId}`);
+  });
+
+  // Handle rider location updates
+  socket.on('riderLocationUpdate', async (data) => {
     try {
-      const { content } = data;
-      if (!content || typeof content !== 'string' || content.trim().length === 0) {
-        socket.emit('error', { message: 'Message content is required' });
+      const { order_id, lat, lng } = data;
+
+      if (!order_id || !lat || !lng) {
+        socket.emit('error', { message: 'Order ID, latitude, and longitude are required' });
         return;
       }
 
-      const sanitizedContent = content.trim().substring(0, 1000);
+      // Verify rider is sending the update
+      if (socket.user.role !== 'rider') {
+        socket.emit('error', { message: 'Only riders can send location updates' });
+        return;
+      }
 
-      const message = await Message.create({
-        userId: socket.user.userId,
-        senderType: socket.user.isAdmin ? 'admin' : 'user',
-        content: sanitizedContent
+      // Update rider location
+      await Rider.updateLocation(socket.user.id, parseFloat(lat), parseFloat(lng));
+
+      // Create tracking entry
+      const OrderTracking = require('./models/PostgreSQL/OrderTracking');
+      const tracking = await OrderTracking.create({
+        order_id,
+        rider_id: socket.user.id,
+        current_lat: parseFloat(lat),
+        current_lng: parseFloat(lng)
       });
 
-      const messageData = {
-        _id: message._id,
-        userId: message.userId,
-        senderType: message.senderType,
-        content: message.content,
-        isRead: message.isRead,
-        createdAt: message.createdAt
-      };
-
-      io.to('admin').emit('supportMessage', messageData);
-      io.to(`user:${socket.user.userId}`).emit('supportMessage', messageData);
-
-      await AuditLog.create({
-        action: 'Send Support Message',
-        entity: 'Message',
-        entityId: message._id,
-        details: `Sent message: ${sanitizedContent}`,
-        performedBy: socket.user.userId
+      // Broadcast to order room (user and restaurant admin)
+      io.to(`order:${order_id}`).emit('riderLocationUpdate', {
+        order_id,
+        rider_id: socket.user.id,
+        lat: parseFloat(lat),
+        lng: parseFloat(lng),
+        timestamp: tracking.timestamp
       });
+
+      // Also emit to restaurant admin room
+      if (socket.user.restaurant_id) {
+        io.to(`restaurant:${socket.user.restaurant_id}`).emit('riderLocationUpdate', {
+          order_id,
+          rider_id: socket.user.id,
+          lat: parseFloat(lat),
+          lng: parseFloat(lng),
+          timestamp: tracking.timestamp
+        });
+      }
     } catch (error) {
-      console.error('Socket.IO support message error:', error.message, error.stack);
-      socket.emit('error', { message: 'Failed to send message', error: error.message });
+      console.error('Socket.IO rider location update error:', error.message);
+      socket.emit('error', { message: 'Failed to update location', error: error.message });
     }
   });
 
@@ -136,31 +195,61 @@ io.on('connection', (socket) => {
   });
 });
 
-// Routes
-app.use('/api/users', userRoutes);
-app.use('/api/foods', foodRoutes);
-app.use('/api/restaurants', restaurantRoutes);
-app.use('/api/restaurant-owner', restaurantOwnerRoutes);
-app.use('/api/superadmin', superAdminRoutes); // UPDATED
-app.use('/api/support', supportRoutes);
+// API Routes
+app.use('/api/superadmin', superAdminRoutes);
+app.use('/api/admin', restaurantAdminRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/rider', riderRoutes);
+
+// User feature routes
+app.use('/api/user/addresses', require('./routes/userAddressRoutes'));
+app.use('/api/user/cart', require('./routes/userCartRoutes'));
+app.use('/api/user/favorites', require('./routes/userFavoriteRoutes'));
+
+// Common routes
+app.use('/api/reviews', require('./routes/reviewRoutes'));
+app.use('/api/payments', require('./routes/paymentRoutes'));
+app.use('/api/coupons', require('./routes/couponRoutes'));
+app.use('/api/chat', require('./routes/chatRoutes'));
+app.use('/api/notifications', require('./routes/notificationRoutes'));
+
+// Rider routes
+app.use('/api/rider/wallet', require('./routes/riderWalletRoutes'));
+
+// Restaurant Admin routes
+app.use('/api/admin/categories', require('./routes/restaurantCategoryRoutes'));
+app.use('/api/admin/addons', require('./routes/restaurantAddonRoutes'));
+app.use('/api/admin/staff', require('./routes/restaurantStaffRoutes'));
+
+// Super Admin routes
+app.use('/api/banners', require('./routes/bannerRoutes'));
+app.use('/api/faqs', require('./routes/faqRoutes'));
+app.use('/api/settings', require('./routes/appSettingRoutes'));
+app.use('/api/audit-logs', require('./routes/auditLogRoutes'));
 
 // Default route
 app.get('/', (req, res) => {
-  res.send('🚀 Welcome to NoteNest API');
+  res.send('🚀 Welcome to NoteNest Multi-Restaurant API');
+});
+
+// Health check
+app.get('/health', (req, res) => {
+  res.json({ 
+    status: 'OK', 
+    timestamp: new Date().toISOString(),
+    database: 'PostgreSQL'
+  });
 });
 
 // 404 Handler
-app.use((req, res, next) => {
-  res.status(404).json({ message: 'Route not found' });
-});
+const { notFoundHandler, errorHandler } = require('./middleware/errorHandler');
+app.use(notFoundHandler);
 
 // Global error handler
-app.use((err, req, res, next) => {
-  console.error('Server error:', err.message, err.stack);
-  res.status(500).json({ message: 'Server error', error: err.message });
-});
+app.use(errorHandler);
 
 // Start server
 server.listen(PORT, () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📊 Environment: ${process.env.NODE_ENV || 'development'}`);
 });
