@@ -92,6 +92,29 @@
 			]
 		},
 		{
+			"name": "Homepage",
+			"item": [
+				{
+					"name": "Get Homepage Data",
+					"request": {
+						"method": "GET",
+						"header": [
+							{
+								"key": "Authorization",
+								"value": "Bearer {{auth_token}}"
+							}
+						],
+						"url": {
+							"raw": "{{base_url}}/api/user/home",
+							"host": ["{{base_url}}"],
+							"path": ["api", "user", "home"]
+						},
+						"description": "Get homepage data including sliders, promotions, food categories, and featured foods"
+					}
+				}
+			]
+		},
+		{
 			"name": "Foods",
 			"item": [
 				{

@@ -12,6 +12,9 @@ router.use(authenticate);
 router.use(authorize('user'));
 router.use(requireRestaurantAccess);
 
+// Homepage
+router.get('/home', userController.getHomepage);
+
 // Food browsing
 router.get('/foods', userController.getFoods);
 

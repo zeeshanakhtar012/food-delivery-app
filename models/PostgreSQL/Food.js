@@ -95,6 +95,23 @@ const Food = {
     );
     return result.rows[0];
   },
+
+  // Get featured foods (top-rated or flagged as featured)
+  findFeaturedFoods: async (restaurant_id, limit = 10) => {
+    const result = await query(
+      `SELECT * FROM foods 
+       WHERE restaurant_id = $1 
+       AND is_available = true 
+       AND (is_featured = true OR rating >= 4.0)
+       ORDER BY 
+         CASE WHEN is_featured = true THEN 1 ELSE 2 END,
+         rating DESC, 
+         total_reviews DESC
+       LIMIT $2`,
+      [restaurant_id, limit]
+    );
+    return result.rows;
+  },
 };
 
 module.exports = Food;

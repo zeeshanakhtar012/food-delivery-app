@@ -131,6 +131,106 @@ exports.login = async (req, res) => {
   }
 };
 
+// Get homepage data
+exports.getHomepage = async (req, res) => {
+  try {
+    const restaurant_id = req.user?.restaurant_id;
+
+    if (!restaurant_id) {
+      return res.status(400).json({ message: 'Restaurant not found' });
+    }
+
+    // Verify restaurant is active
+    const restaurant = await Restaurant.findById(restaurant_id);
+    if (!restaurant || !restaurant.is_active) {
+      return res.status(403).json({ 
+        message: 'Restaurant account is frozen or not found' 
+      });
+    }
+
+    // Import required models
+    const Banner = require('../models/PostgreSQL/Banner');
+    const Coupon = require('../models/PostgreSQL/Coupon');
+    const FoodCategory = require('../models/PostgreSQL/FoodCategory');
+
+    // Get all data in parallel for better performance
+    const [banners, coupons, categories, featuredFoods] = await Promise.all([
+      // Get active banners/sliders for this restaurant
+      Banner.getActiveBanners(restaurant_id),
+      // Get available promotions/coupons
+      Coupon.getAvailableCoupons(restaurant_id),
+      // Get active food categories
+      FoodCategory.findByRestaurantId(restaurant_id, true),
+      // Get featured foods (top-rated, available, featured flag)
+      Food.findFeaturedFoods(restaurant_id)
+    ]);
+
+    // Format sliders/banners
+    const sliders = banners.map(banner => ({
+      id: banner.id,
+      image_url: banner.image_url,
+      title: banner.title || null,
+      description: banner.description || null,
+      link_url: banner.link_url || null
+    }));
+
+    // Format promotions/coupons
+    const promotions = coupons.map(coupon => {
+      let discount_percentage = null;
+      if (coupon.type === 'percentage') {
+        discount_percentage = parseFloat(coupon.value);
+      }
+
+      return {
+        id: coupon.id,
+        title: `${coupon.type === 'percentage' ? discount_percentage + '%' : '$' + coupon.value} Off` + 
+               (coupon.code ? ` - ${coupon.code}` : ''),
+        discount_percentage: discount_percentage,
+        image_url: null, // Coupons don't have images in current schema
+        valid_till: coupon.valid_until
+      };
+    });
+
+    // Format food categories
+    const foodCategories = categories.map(category => ({
+      id: category.id,
+      name: category.name,
+      image_url: category.image_url || null,
+      description: category.description || null
+    }));
+
+    // Format featured foods
+    const featured = featuredFoods.map(food => ({
+      id: food.id,
+      name: food.name,
+      category_id: food.category_id,
+      price: parseFloat(food.price),
+      image_url: food.image_url || null,
+      rating: parseFloat(food.rating || 0),
+      description: food.description || null
+    }));
+
+    // Return structured response
+    res.json({
+      success: true,
+      message: 'Homepage data retrieved successfully',
+      data: {
+        sliders,
+        promotions,
+        food_categories: foodCategories,
+        featured_foods: featured
+      }
+    });
+  } catch (error) {
+    console.error('Get homepage error:', error);
+    res.status(500).json({ 
+      success: false,
+      message: 'Server error', 
+      error: error.message 
+    });
+  }
+};
+
 // Get foods (filtered by restaurant_id from config or user's restaurant_id)
 exports.getFoods = async (req, res) => {
   try {
