@@ -36,7 +36,6 @@ const Admin = {
     return result.rows[0];
   },
 
-  // Get all admins for a restaurant
   findByRestaurantId: async (restaurant_id) => {
     const result = await query(
       `SELECT id, name, email, restaurant_id, role, created_at 
