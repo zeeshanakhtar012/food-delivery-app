@@ -1,36 +1,31 @@
 const { Pool } = require('pg');
 require('dotenv').config();
 
+const isProduction = process.env.NODE_ENV === 'production';
+
 const pool = new Pool({
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'notenest',
-  user: process.env.DB_USER || 'hjf',
-  password: process.env.DB_PASSWORD || '',
-  max: 20,
-  idleTimeoutMillis: 30000,
-  connectionTimeoutMillis: 2000,
+  // This uses the Internal URL on Render, or your local variables if URL isn't found
+  connectionString: process.env.DATABASE_URL ||
+    `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+
+  // MANDATORY FOR RENDER: SSL must be enabled in production
+  ssl: isProduction ? { rejectUnauthorized: false } : false,
 });
 
-// Test connection
 pool.on('connect', () => {
-  console.log('✅ PostgreSQL connected');
+  console.log('✅ PostgreSQL connected successfully');
 });
 
 pool.on('error', (err) => {
-  console.error('❌ PostgreSQL connection error:', err);
+  console.error('❌ Unexpected PostgreSQL error:', err);
 });
 
-// Helper function to execute queries
 const query = async (text, params) => {
-  const start = Date.now();
   try {
     const res = await pool.query(text, params);
-    const duration = Date.now() - start;
-    console.log('Executed query', { text, duration, rows: res.rowCount });
     return res;
   } catch (error) {
-    console.error('Query error', { text, error: error.message });
+    console.error('Query error:', error.message);
     throw error;
   }
 };
