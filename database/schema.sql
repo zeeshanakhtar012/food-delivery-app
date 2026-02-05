@@ -2,8 +2,15 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- Create enum types
-CREATE TYPE admin_role AS ENUM ('super_admin', 'restaurant_admin');
-CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'cancelled');
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'admin_role') THEN
+        CREATE TYPE admin_role AS ENUM ('super_admin', 'restaurant_admin');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
+        CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'cancelled');
+    END IF;
+END$$;
 
 -- Create restaurants table
 CREATE TABLE IF NOT EXISTS restaurants (
