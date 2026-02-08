@@ -189,15 +189,31 @@ CREATE TABLE IF NOT EXISTS food_addons (
 
 -- 6. Orders & Payments
 
+-- 5b. Tables Management
+CREATE TABLE IF NOT EXISTS restaurant_tables (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    table_number VARCHAR(50) NOT NULL,
+    capacity INTEGER DEFAULT 4,
+    status VARCHAR(50) DEFAULT 'available',
+    qr_code_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(restaurant_id, table_number)
+);
+
+-- 6. Orders & Payments
+
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE, -- Made Nullable
     restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
     rider_id UUID REFERENCES riders(id) ON DELETE SET NULL,
+    table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL, -- Added
+    guest_count INTEGER, -- Added
     total_amount DECIMAL(10, 2) NOT NULL,
     status order_status DEFAULT 'pending',
-    delivery_lat DECIMAL(10, 8) NOT NULL,
-    delivery_lng DECIMAL(11, 8) NOT NULL,
+    delivery_lat DECIMAL(10, 8), -- Made Nullable in logic (DB allows null if not specified NOT NULL in create, but verifying below)
+    delivery_lng DECIMAL(11, 8), -- Made Nullable in logic
     order_number VARCHAR(50) UNIQUE,
     order_type order_type DEFAULT 'delivery',
     payment_method payment_method DEFAULT 'cash',

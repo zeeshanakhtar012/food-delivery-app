@@ -6,6 +6,7 @@ const path = require('path');
 const fs = require('fs');
 
 const restaurantAdminController = require('../controllers/restaurantAdminController');
+const restaurantTableController = require('../controllers/restaurantTableController');
 const {
   authenticate,
   authorize,
@@ -104,8 +105,17 @@ router.delete('/foods/:id', restaurantAdminController.deleteFood);
 // ---------------------------------------------------------------------
 // ORDER MANAGEMENT
 // ---------------------------------------------------------------------
+router.post('/orders', restaurantAdminController.createOrder); // [NEW] Manual Order
 router.get('/orders', restaurantAdminController.getAllOrders);
 router.put('/orders/:id/status', restaurantAdminController.updateOrderStatus);
+
+// ---------------------------------------------------------------------
+// TABLE MANAGEMENT
+// ---------------------------------------------------------------------
+router.post('/tables', restaurantTableController.createTable);
+router.get('/tables', restaurantTableController.getTables);
+router.put('/tables/:id', restaurantTableController.updateTable);
+router.delete('/tables/:id', restaurantTableController.deleteTable);
 
 // ---------------------------------------------------------------------
 // RIDER MANAGEMENT

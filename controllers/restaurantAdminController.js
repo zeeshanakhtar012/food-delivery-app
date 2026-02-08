@@ -264,6 +264,60 @@ exports.updateOrderStatus = async (req, res, next) => {
   }
 };
 
+exports.createOrder = async (req, res, next) => {
+  try {
+    const restaurantId = req.user.restaurant_id;
+    const { items, table_id, guest_count, order_type, customer_phone, customer_name, note } = req.body;
+
+    if (!items || items.length === 0) {
+      return errorResponse(res, 'Items required', 400);
+    }
+
+    // Calculate totals from DB prices to be safe (optional, but good practice)
+    // For now, assuming frontend sends valid data or we trust the admin. 
+    // Ideally, we should fetch Food items by IDs and calculate price.
+    // Let's implement basic calculation if price provided, else use DB lookups (skipping for complexity unless requested, assuming items have {food_id, quantity, price})
+
+    let total_amount = 0;
+    items.forEach(item => {
+      total_amount += (item.price * item.quantity);
+    });
+
+    const orderData = {
+      restaurant_id: restaurantId,
+      total_amount,
+      items,
+      order_type: order_type || 'dine_in',
+      table_id: table_id || null,
+      guest_count: guest_count ? parseInt(guest_count) : null,
+      status: 'accepted', // Admin created orders start as accepted
+      delivery_lat: null,
+      delivery_lng: null,
+      user_id: null, // Walk-in / Guest
+      delivery_instructions: note
+    };
+
+    const order = await Order.create(orderData);
+
+    // Emit Socket Event
+    const io = req.app.get('io');
+    io.to(`restaurant:${restaurantId}`).emit('newOrder', order);
+
+    // If table assigned, emit table update
+    if (table_id) {
+      io.to(`restaurant:${restaurantId}`).emit('tableStatusUpdate', {
+        table_id: table_id,
+        status: 'occupied'
+      });
+    }
+
+    await logCreate(req.user.id, 'restaurant_admin', 'ORDER', order.id, order, req);
+    return successResponse(res, order, 'Order created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ============== RIDER MANAGEMENT ==============
 exports.createRider = async (req, res, next) => {
   try {

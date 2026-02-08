@@ -4,16 +4,30 @@ const { v4: uuidv4 } = require('uuid');
 const Order = {
   // Create order
   create: async (orderData) => {
-    const { user_id, restaurant_id, total_amount, delivery_lat, delivery_lng, items } = orderData;
-    
+    const {
+      user_id, restaurant_id, total_amount,
+      delivery_lat, delivery_lng, items,
+      table_id, guest_count, order_type, status
+    } = orderData;
+
     // Start transaction - create order
+    // user_id can be null now
     const orderResult = await query(
-      `INSERT INTO orders (id, user_id, restaurant_id, total_amount, delivery_lat, delivery_lng)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO orders (
+         id, user_id, restaurant_id, total_amount, 
+         delivery_lat, delivery_lng, table_id, guest_count, 
+         order_type, status
+       )
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [uuidv4(), user_id, restaurant_id, total_amount, delivery_lat, delivery_lng]
+      [
+        uuidv4(), user_id || null, restaurant_id, total_amount,
+        delivery_lat || null, delivery_lng || null,
+        table_id || null, guest_count || null,
+        order_type || 'delivery', status || 'pending'
+      ]
     );
-    
+
     const order = orderResult.rows[0];
 
     // Create order items
@@ -27,13 +41,26 @@ const Order = {
       }
     }
 
+    // If assigned to a table, update table status to occupied
+    if (table_id && status !== 'completed' && status !== 'cancelled') {
+      const Table = require('./Table'); // Lazy load to avoid circular dependency if any
+      await Table.update(table_id, { status: 'occupied' });
+    }
+
     // Fetch order with items
     return await Order.findById(order.id);
   },
 
   // Find order by ID
   findById: async (id) => {
-    const orderResult = await query('SELECT * FROM orders WHERE id = $1', [id]);
+    const orderResult = await query(
+      `SELECT o.*, 
+              t.table_number
+       FROM orders o
+       LEFT JOIN restaurant_tables t ON o.table_id = t.id
+       WHERE o.id = $1`,
+      [id]
+    );
     if (orderResult.rows.length === 0) return null;
 
     const order = orderResult.rows[0];
@@ -44,7 +71,7 @@ const Order = {
        WHERE oi.order_id = $1`,
       [id]
     );
-    
+
     return {
       ...order,
       items: itemsResult.rows
@@ -56,10 +83,12 @@ const Order = {
     let sql = `
       SELECT o.*, 
              u.name as user_name, u.phone as user_phone,
-             r.name as rider_name, r.phone as rider_phone
+             r.name as rider_name, r.phone as rider_phone,
+             t.table_number
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       LEFT JOIN riders r ON o.rider_id = r.id
+      LEFT JOIN restaurant_tables t ON o.table_id = t.id
       WHERE o.restaurant_id = $1
     `;
     const params = [restaurant_id];
@@ -72,7 +101,7 @@ const Order = {
     sql += ' ORDER BY o.created_at DESC';
 
     const result = await query(sql, params);
-    
+
     // Fetch items for each order
     for (const order of result.rows) {
       const itemsResult = await query(
@@ -122,7 +151,7 @@ const Order = {
               u.name as user_name, u.phone as user_phone,
               r.name as restaurant_name
        FROM orders o
-       JOIN users u ON o.user_id = u.id
+       LEFT JOIN users u ON o.user_id = u.id -- Changed to LEFT JOIN as user might be null now
        JOIN restaurants r ON o.restaurant_id = r.id
        WHERE o.rider_id = $1 AND o.status NOT IN ('delivered', 'cancelled')
        ORDER BY o.created_at DESC`,
@@ -160,6 +189,16 @@ const Order = {
       `UPDATE orders SET ${updates.join(', ')} WHERE id = $${paramCount} RETURNING *`,
       values
     );
+
+    // If order is completed or cancelled, free up the table
+    if (result.rows.length > 0 && (status === 'delivered' || status === 'cancelled' || status === 'picked_up')) {
+      const order = result.rows[0];
+      if (order.table_id) {
+        const Table = require('./Table');
+        await Table.update(order.table_id, { status: 'available' });
+      }
+    }
+
     return result.rows[0];
   },
 
@@ -192,6 +231,29 @@ const Order = {
       ordersByStatus[row.status] = parseInt(row.count);
     });
 
+    // Get orders by type (Dine-in, Takeaway, Delivery)
+    const typeResult = await query(
+      `SELECT order_type, COUNT(*) as count, COALESCE(SUM(total_amount), 0) as revenue
+       FROM orders
+       WHERE restaurant_id = $1 AND status != 'cancelled'
+       GROUP BY order_type`,
+      [restaurant_id]
+    );
+    const salesByType = {
+      delivery: { count: 0, revenue: 0 },
+      pickup: { count: 0, revenue: 0 },
+      dine_in: { count: 0, revenue: 0 },
+      takeaway: { count: 0, revenue: 0 } // Mapping generic takeaway if used
+    };
+
+    typeResult.rows.forEach(row => {
+      const type = row.order_type || 'unknown';
+      salesByType[type] = {
+        count: parseInt(row.count),
+        revenue: parseFloat(row.revenue)
+      };
+    });
+
     // Get recent orders (last 30 days)
     const recentOrdersResult = await query(
       `SELECT COUNT(*) as count 
@@ -217,7 +279,8 @@ const Order = {
       totalRevenue,
       recentOrders,
       avgOrderValue,
-      ordersByStatus
+      ordersByStatus,
+      salesByType
     };
   },
 };
