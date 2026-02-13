@@ -283,6 +283,46 @@ const Order = {
       salesByType
     };
   },
+
+  // Add items to existing order
+  addItems: async (orderId, newItems) => {
+    let currentOrder = await Order.findById(orderId);
+    if (!currentOrder) return null;
+
+    let additionalAmount = 0;
+
+    // Insert new items
+    for (const item of newItems) {
+      await query(
+        `INSERT INTO order_items (id, order_id, food_id, quantity, price)
+         VALUES ($1, $2, $3, $4, $5)`,
+        [uuidv4(), orderId, item.food_id, item.quantity, item.price]
+      );
+      additionalAmount += item.quantity * item.price;
+    }
+
+    // Update total amount
+    const newTotal = parseFloat(currentOrder.total_amount) + additionalAmount;
+    const result = await query(
+      `UPDATE orders SET total_amount = $1, updated_at = NOW() WHERE id = $2 RETURNING *`,
+      [newTotal, orderId]
+    );
+
+    return await Order.findById(orderId);
+  },
+
+  // Find active order for a table
+  findActiveByTableId: async (tableId) => {
+    const result = await query(
+      `SELECT * FROM orders 
+       WHERE table_id = $1 
+         AND status NOT IN ('delivered', 'cancelled', 'picked_up')
+       LIMIT 1`,
+      [tableId]
+    );
+    if (result.rows.length === 0) return null;
+    return await Order.findById(result.rows[0].id);
+  }
 };
 
 module.exports = Order;

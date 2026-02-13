@@ -318,6 +318,39 @@ exports.createOrder = async (req, res, next) => {
   }
 };
 
+exports.updateOrderItems = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { items } = req.body; // Expecting array of { food_id, quantity, price }
+    const restaurantId = req.user.restaurant_id;
+
+    if (!items || items.length === 0) {
+      return errorResponse(res, 'New items are required', 400);
+    }
+
+    const order = await Order.findById(id);
+    if (!order || order.restaurant_id !== restaurantId) {
+      return errorResponse(res, 'Order not found', 404);
+    }
+
+    if (order.status === 'delivered' || order.status === 'cancelled' || order.status === 'picked_up') {
+      return errorResponse(res, 'Cannot modify completed order', 400);
+    }
+
+    const updatedOrder = await Order.addItems(id, items);
+
+    // Emit socket event
+    const io = req.app.get('io');
+    io.to(`restaurant:${restaurantId}`).emit('orderUpdated', updatedOrder);
+
+    await logUpdate(req.user.id, 'restaurant_admin', 'ORDER', id, order, updatedOrder, req);
+
+    return successResponse(res, updatedOrder, 'Order updated with new items');
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ============== RIDER MANAGEMENT ==============
 exports.createRider = async (req, res, next) => {
   try {

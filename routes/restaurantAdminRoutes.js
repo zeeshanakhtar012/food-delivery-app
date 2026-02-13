@@ -106,6 +106,7 @@ router.delete('/foods/:id', restaurantAdminController.deleteFood);
 // ORDER MANAGEMENT
 // ---------------------------------------------------------------------
 router.post('/orders', restaurantAdminController.createOrder); // [NEW] Manual Order
+router.put('/orders/:id/items', restaurantAdminController.updateOrderItems); // [NEW] Add items
 router.get('/orders', restaurantAdminController.getAllOrders);
 router.put('/orders/:id/status', restaurantAdminController.updateOrderStatus);
 
@@ -114,6 +115,7 @@ router.put('/orders/:id/status', restaurantAdminController.updateOrderStatus);
 // ---------------------------------------------------------------------
 router.post('/tables', restaurantTableController.createTable);
 router.get('/tables', restaurantTableController.getTables);
+router.get('/tables/:id/order', restaurantTableController.getTableActiveOrder); // [NEW] Get active order
 router.put('/tables/:id', restaurantTableController.updateTable);
 router.delete('/tables/:id', restaurantTableController.deleteTable);
 
