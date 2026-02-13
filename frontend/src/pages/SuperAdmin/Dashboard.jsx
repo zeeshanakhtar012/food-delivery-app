@@ -33,19 +33,24 @@ const Dashboard = () => {
         const fetchStats = async () => {
             try {
                 const response = await api.get('/api/superadmin/analytics');
-                setStats(response.data.data || {
-                    totalRestaurants: 12,
-                    totalUsers: 1450,
-                    totalRevenue: '$45,230',
-                    activeRiders: 34
+                const data = response.data.analytics || {}; // Adjusted to match generic response structure if needed, or check specific key
+
+                // Super Admin API likely returns { analytics: { total_restaurants: ... } } based on controller
+                // Actually controller says: res.json({ message:..., analytics: ... })
+
+                setStats({
+                    totalRestaurants: data.total_restaurants || 0,
+                    totalUsers: data.total_users || 0, // Ensure field matches API
+                    totalRevenue: data.total_revenue ? `$${parseFloat(data.total_revenue).toFixed(2)}` : '$0.00',
+                    activeRiders: data.active_riders || 0
                 });
             } catch (error) {
                 console.error('Failed to fetch dashboard stats', error);
                 setStats({
-                    totalRestaurants: 12,
-                    totalUsers: 1450,
-                    totalRevenue: '$45,230',
-                    activeRiders: 34
+                    totalRestaurants: 0,
+                    totalUsers: 0,
+                    totalRevenue: '$0.00',
+                    activeRiders: 0
                 });
             } finally {
                 setLoading(false);

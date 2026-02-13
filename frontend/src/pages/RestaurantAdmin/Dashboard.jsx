@@ -37,41 +37,36 @@ const Dashboard = () => {
         const fetchDashboardData = async () => {
             try {
                 const response = await api.get('/api/admin/analytics');
-                setStats(response.data.stats || {
-                    totalSales: '$12,450',
-                    totalOrders: 342,
-                    pendingOrders: 5,
-                    avgOrderValue: '$36.40'
+                // Only use API data. If stats are missing, default to 0.
+                // The API returns { stats: { totalSales, totalOrders, ... }, salesData: [...] }
+                // Adjust based on actual API response structure inspection if needed.
+                // Assuming strict structure based on controller:
+                const data = response.data.data || {};
+
+                setStats({
+                    totalSales: data.total_sales ? `$${parseFloat(data.total_sales).toFixed(2)}` : '$0.00',
+                    totalOrders: data.total_orders || 0,
+                    pendingOrders: data.pending_orders || 0,
+                    avgOrderValue: data.avg_order_value ? `$${parseFloat(data.avg_order_value).toFixed(2)}` : '$0.00'
                 });
 
-                // Mock chart data
-                setSalesData([
-                    { name: 'Mon', sales: 4000 },
-                    { name: 'Tue', sales: 3000 },
-                    { name: 'Wed', sales: 5000 },
-                    { name: 'Thu', sales: 2780 },
-                    { name: 'Fri', sales: 6890 },
-                    { name: 'Sat', sales: 8390 },
-                    { name: 'Sun', sales: 7490 },
-                ]);
+                // Transform sales data for chart if available, else empty array (NO MOCK DATA)
+                if (data.sales_trends && Array.isArray(data.sales_trends)) {
+                    setSalesData(data.sales_trends);
+                } else {
+                    setSalesData([]);
+                }
+
             } catch (error) {
                 console.error('Failed to fetch dashboard data', error);
-                // Fallback
+                // NO FALLBACK MOCK DATA - Show zeros if failed
                 setStats({
-                    totalSales: '$12,450',
-                    totalOrders: 342,
-                    pendingOrders: 5,
-                    avgOrderValue: '$36.40'
+                    totalSales: '$0.00',
+                    totalOrders: 0,
+                    pendingOrders: 0,
+                    avgOrderValue: '$0.00'
                 });
-                setSalesData([
-                    { name: 'Mon', sales: 4000 },
-                    { name: 'Tue', sales: 3000 },
-                    { name: 'Wed', sales: 5000 },
-                    { name: 'Thu', sales: 2780 },
-                    { name: 'Fri', sales: 6890 },
-                    { name: 'Sat', sales: 8390 },
-                    { name: 'Sun', sales: 7490 },
-                ]);
+                setSalesData([]);
             } finally {
                 setLoading(false);
             }

@@ -3,7 +3,11 @@ import Layout from './components/layout/Layout';
 import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
+import Restaurants from './pages/SuperAdmin/Restaurants';
 import RestaurantAdminDashboard from './pages/RestaurantAdmin/Dashboard';
+import Orders from './pages/RestaurantAdmin/Orders';
+import Menu from './pages/RestaurantAdmin/Menu';
+import Staff from './pages/RestaurantAdmin/Staff';
 
 // Placeholder components
 const PlaceholderPage = ({ title }) => (
@@ -24,7 +28,7 @@ function App() {
           <Layout>
             <Routes>
               <Route index element={<SuperAdminDashboard />} />
-              <Route path="restaurants" element={<PlaceholderPage title="Manage Restaurants" />} />
+              <Route path="restaurants" element={<Restaurants />} /> {/* Changed to actual component */}
               <Route path="settings" element={<PlaceholderPage title="Settings" />} />
             </Routes>
           </Layout>

@@ -53,4 +53,46 @@ api.interceptors.response.use(
     }
 );
 
+// Restaurant Admin Endpoints
+export const restaurantAdmin = {
+    // Food
+    createFood: (data) => api.post('/api/admin/foods', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    getAllFoods: () => api.get('/api/admin/foods'),
+    updateFood: (id, data) => api.put(`/api/admin/foods/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    deleteFood: (id) => api.delete(`/api/admin/foods/${id}`),
+
+    // Orders
+    getAllOrders: () => api.get('/api/admin/orders'),
+    updateOrderStatus: (id, status) => api.put(`/api/admin/orders/${id}/status`, { status }),
+    createOrder: (data) => api.post('/api/admin/orders', data),
+    updateOrderItems: (id, items) => api.put(`/api/admin/orders/${id}/items`, { items }),
+
+    // Riders
+    createRider: (data) => api.post('/api/admin/riders', data),
+    getAllRiders: () => api.get('/api/admin/riders'),
+    getRiderPerformance: (params) => api.get('/api/admin/riders/performance', { params }),
+
+    // Analytics & Reports
+    getAnalytics: () => api.get('/api/admin/analytics'),
+    getSalesReport: (params) => api.get('/api/admin/reports/sales', { params }),
+    getTopProducts: (params) => api.get('/api/admin/reports/top-products', { params }),
+
+    // Settings
+    getProfile: () => api.get('/api/admin/profile'),
+    updateProfile: (data) => api.put('/api/admin/profile', data),
+};
+
+// Super Admin Endpoints
+export const superAdmin = {
+    // Restaurants
+    createRestaurant: (data) => api.post('/api/superadmin/restaurants', data),
+    getAllRestaurants: () => api.get('/api/superadmin/restaurants'),
+    getRestaurantDetails: (id) => api.get(`/api/superadmin/restaurants/${id}/details`),
+    toggleRestaurantFreeze: (id) => api.put(`/api/superadmin/restaurants/${id}/freeze`),
+    deleteRestaurant: (id) => api.delete(`/api/superadmin/restaurants/${id}`),
+
+    // Analytics
+    getPlatformAnalytics: () => api.get('/api/superadmin/analytics'),
+};
+
 export default api;
