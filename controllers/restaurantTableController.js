@@ -1,11 +1,13 @@
 const { successResponse, errorResponse } = require('../helpers/response');
 const Table = require('../models/PostgreSQL/Table');
+const Order = require('../models/PostgreSQL/Order');
 const { logCreate, logUpdate, logDelete } = require('../services/auditService');
 
 exports.createTable = async (req, res, next) => {
     try {
         const restaurantId = req.user.restaurant_id;
         const { table_number, capacity, qr_code_url } = req.body;
+
 
         if (!table_number) {
             return errorResponse(res, 'Table number is required', 400);
@@ -94,6 +96,26 @@ exports.deleteTable = async (req, res, next) => {
         await Table.delete(id);
         await logDelete(req.user.id, 'restaurant_admin', 'TABLE', id, table, req);
         return successResponse(res, null, 'Table deleted');
+    } catch (error) {
+        next(error);
+    }
+};
+
+exports.getTableActiveOrder = async (req, res, next) => {
+    try {
+        const { id } = req.params;
+        const restaurantId = req.user.restaurant_id;
+
+        // Verify table ownership
+        const table = await Table.findById(id);
+        if (!table || table.restaurant_id !== restaurantId) {
+            return errorResponse(res, 'Table not found', 404);
+        }
+
+        const activeOrder = await Order.findActiveByTableId(id);
+
+        return successResponse(res, activeOrder, activeOrder ? 'Active order found' : 'No active order');
+
     } catch (error) {
         next(error);
     }
