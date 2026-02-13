@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Eye, EyeOff, Lock, Mail, Shield } from 'lucide-react';
+import { Eye, EyeOff, Lock, Mail, ChefHat, ArrowRight, Loader2 } from 'lucide-react';
 
 const Login = () => {
     const [role, setRole] = useState('restaurant_admin');
@@ -27,47 +27,59 @@ const Login = () => {
             await login(role, { email, password });
             navigate(from, { replace: true });
         } catch (err) {
-            setError(err.response?.data?.error?.message || 'Login failed. Please check your credentials.');
+            setError(err.response?.data?.error?.message || 'Login failed. Please verify your credentials.');
         } finally {
             setLoading(false);
         }
     };
 
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col justify-center py-12 sm:px-6 lg:px-8">
-            <div className="sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="flex justify-center">
-                    <div className="rounded-full bg-primary/10 p-3">
-                        <Shield className="h-10 w-10 text-primary" />
+        <div className="min-h-screen flex bg-background">
+            {/* Left Side - Hero/Branding */}
+            <div className="hidden lg:flex w-1/2 bg-zinc-900 relative items-center justify-center overflow-hidden">
+                <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black z-0" />
+                <div className="absolute inset-0 opacity-20 bg-[url('https://images.unsplash.com/photo-1555396273-367ea4eb4db5?q=80&w=2874&auto=format&fit=crop')] bg-cover bg-center mix-blend-overlay" />
+
+                <div className="relative z-10 p-12 text-white max-w-lg">
+                    <div className="flex items-center gap-3 mb-8">
+                        <div className="p-3 bg-white/10 backdrop-blur-sm rounded-xl border border-white/20">
+                            <ChefHat size={32} className="text-white" />
+                        </div>
+                        <h1 className="text-3xl font-bold tracking-tight">NoteNest</h1>
                     </div>
+                    <h2 className="text-4xl font-extrabold tracking-tight mb-4 leading-tight">
+                        Manage your restaurant with <span className="text-orange-500">confidence</span>.
+                    </h2>
+                    <p className="text-zinc-400 text-lg leading-relaxed">
+                        The all-in-one platform for seamless food delivery operations, real-time analytics, and superior customer experiences.
+                    </p>
                 </div>
-                <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-                    Sign in to your account
-                </h2>
-                <p className="mt-2 text-center text-sm text-gray-600">
-                    NoteNest Admin Portal
-                </p>
             </div>
 
-            <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md">
-                <div className="bg-white py-8 px-4 shadow sm:rounded-lg sm:px-10">
+            {/* Right Side - Login Form */}
+            <div className="w-full lg:w-1/2 flex items-center justify-center p-8 lg:p-12">
+                <div className="w-full max-w-md space-y-8">
+                    <div className="text-center lg:text-left">
+                        <h2 className="text-3xl font-bold tracking-tight text-foreground">Welcome back</h2>
+                        <p className="mt-2 text-muted-foreground">
+                            Please sign in to your admin dashboard.
+                        </p>
+                    </div>
 
-                    {/* Role Selection Tabs */}
-                    <div className="mb-6 flex space-x-2 bg-gray-100 p-1 rounded-lg">
+                    <div className="bg-muted/30 p-1.5 rounded-lg flex relative">
+                        <div
+                            className={`absolute top-1.5 bottom-1.5 w-[calc(50%-6px)] bg-background shadow-sm rounded-md transition-all duration-300 ease-in-out ${role === 'super_admin' ? 'translate-x-[100%] ml-1.5' : 'translate-x-0'}`}
+                        />
                         <button
                             onClick={() => setRole('restaurant_admin')}
-                            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-colors ${role === 'restaurant_admin'
-                                    ? 'bg-white text-gray-900 shadow'
-                                    : 'text-gray-500 hover:text-gray-900'
+                            className={`flex-1 relative z-10 py-2.5 text-sm font-medium rounded-md transition-colors duration-200 ${role === 'restaurant_admin' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             Restaurant Admin
                         </button>
                         <button
                             onClick={() => setRole('super_admin')}
-                            className={`flex-1 flex items-center justify-center py-2 text-sm font-medium rounded-md transition-colors ${role === 'super_admin'
-                                    ? 'bg-white text-gray-900 shadow'
-                                    : 'text-gray-500 hover:text-gray-900'
+                            className={`flex-1 relative z-10 py-2.5 text-sm font-medium rounded-md transition-colors duration-200 ${role === 'super_admin' ? 'text-foreground' : 'text-muted-foreground hover:text-foreground'
                                 }`}
                         >
                             Super Admin
@@ -75,85 +87,84 @@ const Login = () => {
                     </div>
 
                     <form className="space-y-6" onSubmit={handleSubmit}>
-                        <div>
-                            <label htmlFor="email" className="block text-sm font-medium text-gray-700">
-                                Email address
-                            </label>
-                            <div className="mt-1 relative rounded-md shadow-sm">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Mail className="h-5 w-5 text-gray-400" />
+                        <div className="space-y-5">
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">
+                                    Email address
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Mail className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <input
+                                        type="email"
+                                        required
+                                        value={email}
+                                        onChange={(e) => setEmail(e.target.value)}
+                                        className="block w-full pl-10 pr-3 py-2.5 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors placeholder:text-muted-foreground/50 sm:text-sm"
+                                        placeholder="name@company.com"
+                                    />
                                 </div>
-                                <input
-                                    id="email"
-                                    name="email"
-                                    type="email"
-                                    autoComplete="email"
-                                    required
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="focus:ring-primary focus:border-primary block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-2 border"
-                                    placeholder="you@example.com"
-                                />
                             </div>
-                        </div>
 
-                        <div>
-                            <label htmlFor="password" className="block text-sm font-medium text-gray-700">
-                                Password
-                            </label>
-                            <div className="mt-1 relative rounded-md shadow-sm">
-                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                    <Lock className="h-5 w-5 text-gray-400" />
-                                </div>
-                                <input
-                                    id="password"
-                                    name="password"
-                                    type={showPassword ? 'text' : 'password'}
-                                    autoComplete="current-password"
-                                    required
-                                    value={password}
-                                    onChange={(e) => setPassword(e.target.value)}
-                                    className="focus:ring-primary focus:border-primary block w-full pl-10 pr-10 sm:text-sm border-gray-300 rounded-md py-2 border"
-                                    placeholder="••••••••"
-                                />
-                                <div className="absolute inset-y-0 right-0 pr-3 flex items-center">
+                            <div>
+                                <label className="block text-sm font-medium text-foreground mb-1.5">
+                                    Password
+                                </label>
+                                <div className="relative">
+                                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                        <Lock className="h-5 w-5 text-muted-foreground" />
+                                    </div>
+                                    <input
+                                        type={showPassword ? 'text' : 'password'}
+                                        required
+                                        value={password}
+                                        onChange={(e) => setPassword(e.target.value)}
+                                        className="block w-full pl-10 pr-10 py-2.5 border border-input rounded-lg bg-background text-foreground focus:ring-2 focus:ring-primary/20 focus:border-primary transition-colors placeholder:text-muted-foreground/50 sm:text-sm"
+                                        placeholder="Enter your password"
+                                    />
                                     <button
                                         type="button"
                                         onClick={() => setShowPassword(!showPassword)}
-                                        className="text-gray-400 hover:text-gray-500 focus:outline-none"
+                                        className="absolute inset-y-0 right-0 pr-3 flex items-center text-muted-foreground hover:text-foreground transition-colors"
                                     >
-                                        {showPassword ? (
-                                            <EyeOff className="h-5 w-5" />
-                                        ) : (
-                                            <Eye className="h-5 w-5" />
-                                        )}
+                                        {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                                     </button>
                                 </div>
                             </div>
                         </div>
 
                         {error && (
-                            <div className="rounded-md bg-red-50 p-4">
-                                <div className="flex">
-                                    <div className="ml-3">
-                                        <h3 className="text-sm font-medium text-red-800">
-                                            {error}
-                                        </h3>
-                                    </div>
-                                </div>
+                            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start">
+                                <div className="ml-3 text-sm text-destructive font-medium">{error}</div>
                             </div>
                         )}
 
-                        <div>
-                            <button
-                                type="submit"
-                                disabled={loading}
-                                className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-50 disabled:cursor-not-allowed`}
-                            >
-                                {loading ? 'Signing in...' : 'Sign in'}
-                            </button>
-                        </div>
+                        <button
+                            type="submit"
+                            disabled={loading}
+                            className="w-full flex justify-center items-center py-2.5 px-4 border border-transparent rounded-lg shadow-sm text-sm font-semibold text-primary-foreground bg-primary hover:bg-primary/90 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-primary disabled:opacity-70 disabled:cursor-not-allowed transition-all"
+                        >
+                            {loading ? (
+                                <>
+                                    <Loader2 className="animate-spin -ml-1 mr-2 h-4 w-4" />
+                                    Signing in...
+                                </>
+                            ) : (
+                                <>
+                                    Sign in
+                                    <ArrowRight className="ml-2 h-4 w-4" />
+                                </>
+                            )}
+                        </button>
                     </form>
+
+                    <p className="text-center text-sm text-muted-foreground">
+                        Don't have an account?{' '}
+                        <a href="#" className="font-medium text-primary hover:text-primary/80 transition-colors">
+                            Contact support
+                        </a>
+                    </p>
                 </div>
             </div>
         </div>
