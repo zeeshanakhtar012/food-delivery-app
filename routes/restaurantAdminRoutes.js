@@ -145,20 +145,20 @@ router.get('/analytics', restaurantAdminController.getAnalytics);
 router.get('/reports/sales', restaurantAdminController.getSalesReport);
 router.get('/reports/income', restaurantAdminController.getIncomeReport);
 router.get('/reports/top-products', restaurantAdminController.getTopProducts);
-router.get('/reports/remaining-items', restaurantAdminController.getLowStockItems);
+router.get('/reports/low-stock', restaurantAdminController.getLowStockItems); // Renamed from remaining-items
 router.get('/reports/export', restaurantAdminController.exportReport);
 
 // ---------------------------------------------------------------------
 // PRODUCT & CATEGORY INSIGHTS
 // ---------------------------------------------------------------------
-router.get('/analytics/products-summary', restaurantAdminController.getProductsSummary);
-router.get('/analytics/category-performance', restaurantAdminController.getCategoryPerformance);
+router.get('/reports/products-summary', restaurantAdminController.getProductsSummary); // Moved to reports
+router.get('/reports/category-performance', restaurantAdminController.getCategoryPerformance); // Moved to reports
 
 // ---------------------------------------------------------------------
 // INCOME OVERVIEW
 // ---------------------------------------------------------------------
-router.get('/income/summary', restaurantAdminController.getIncomeSummary);
-router.get('/income/trends', restaurantAdminController.getIncomeTrends);
+router.get('/reports/income-summary', restaurantAdminController.getIncomeSummary); // Moved to reports
+router.get('/reports/income-trends', restaurantAdminController.getIncomeTrends); // Moved to reports
 
 // ---------------------------------------------------------------------
 // EXPORT THE ROUTER
