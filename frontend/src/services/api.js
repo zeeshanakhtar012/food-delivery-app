@@ -72,10 +72,23 @@ export const restaurantAdmin = {
     getAllRiders: () => api.get('/api/admin/riders'),
     getRiderPerformance: (params) => api.get('/api/admin/riders/performance', { params }),
 
+    // Tables
+    createTable: (data) => api.post('/api/admin/tables', data),
+    getAllTables: () => api.get('/api/admin/tables'),
+    updateTable: (id, data) => api.put(`/api/admin/tables/${id}`, data),
+    deleteTable: (id) => api.delete(`/api/admin/tables/${id}`),
+    getTableActiveOrder: (id) => api.get(`/api/admin/tables/${id}/active-order`),
+
     // Analytics & Reports
     getAnalytics: () => api.get('/api/admin/analytics'),
     getSalesReport: (params) => api.get('/api/admin/reports/sales', { params }),
+    getIncomeReport: (params) => api.get('/api/admin/reports/income', { params }),
     getTopProducts: (params) => api.get('/api/admin/reports/top-products', { params }),
+    getLowStockItems: (params) => api.get('/api/admin/reports/low-stock', { params }),
+    getProductsSummary: () => api.get('/api/admin/reports/products-summary'),
+    getCategoryPerformance: () => api.get('/api/admin/reports/category-performance'),
+    getIncomeSummary: (params) => api.get('/api/admin/reports/income-summary', { params }),
+    getIncomeTrends: (params) => api.get('/api/admin/reports/income-trends', { params }),
 
     // Settings
     getProfile: () => api.get('/api/admin/profile'),

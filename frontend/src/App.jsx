@@ -9,6 +9,8 @@ import RestaurantAdminDashboard from './pages/RestaurantAdmin/Dashboard';
 import Orders from './pages/RestaurantAdmin/Orders';
 import Menu from './pages/RestaurantAdmin/Menu';
 import Staff from './pages/RestaurantAdmin/Staff';
+import Tables from './pages/RestaurantAdmin/Tables';
+import Reports from './pages/RestaurantAdmin/Reports';
 import Settings from './pages/RestaurantAdmin/Settings';
 
 // Placeholder components
@@ -46,6 +48,8 @@ function App() {
               <Route path="orders" element={<Orders />} />
               <Route path="menu" element={<Menu />} />
               <Route path="staff" element={<Staff />} />
+              <Route path="tables" element={<Tables />} />
+              <Route path="reports" element={<Reports />} />
               <Route path="settings" element={<Settings />} />
             </Routes>
           </Layout>

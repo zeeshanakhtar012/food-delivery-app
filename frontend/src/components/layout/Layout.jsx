@@ -3,6 +3,7 @@ import { Link, useLocation, Navigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import {
     LayoutDashboard,
+    LayoutGrid,
     UtensilsCrossed,
     Users,
     Settings,
@@ -13,7 +14,8 @@ import {
     ShoppingBag,
     Bell,
     Search,
-    ChefHat
+    ChefHat,
+    BarChart3
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -58,7 +60,9 @@ const Sidebar = ({ role, collapsed, toggleCollapsed }) => {
     const restaurantAdminLinks = [
         { icon: LayoutDashboard, label: 'Dashboard', to: '/restaurant-admin' },
         { icon: ShoppingBag, label: 'Orders', to: '/restaurant-admin/orders' },
+        { icon: LayoutGrid, label: 'Tables', to: '/restaurant-admin/tables' },
         { icon: UtensilsCrossed, label: 'Menu Items', to: '/restaurant-admin/menu' },
+        { icon: BarChart3, label: 'Reports', to: '/restaurant-admin/reports' },
         { icon: Users, label: 'Staff & Riders', to: '/restaurant-admin/staff' },
         { icon: Settings, label: 'Settings', to: '/restaurant-admin/settings' },
     ];
