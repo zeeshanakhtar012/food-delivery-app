@@ -71,6 +71,8 @@ export const restaurantAdmin = {
     createRider: (data) => api.post('/api/admin/riders', data),
     getAllRiders: () => api.get('/api/admin/riders'),
     getRiderPerformance: (params) => api.get('/api/admin/riders/performance', { params }),
+    blockRider: (id) => api.put(`/api/admin/riders/${id}/block`),
+    unblockRider: (id) => api.put(`/api/admin/riders/${id}/unblock`),
 
     // Tables
     createTable: (data) => api.post('/api/admin/tables', data),
@@ -89,6 +91,7 @@ export const restaurantAdmin = {
     getCategoryPerformance: () => api.get('/api/admin/reports/category-performance'),
     getIncomeSummary: (params) => api.get('/api/admin/reports/income-summary', { params }),
     getIncomeTrends: (params) => api.get('/api/admin/reports/income-trends', { params }),
+    exportReport: (params) => api.get('/api/admin/reports/export', { params, responseType: 'blob' }),
 
     // Settings
     getProfile: () => api.get('/api/admin/profile'),
@@ -101,6 +104,7 @@ export const superAdmin = {
     createRestaurant: (data) => api.post('/api/superadmin/restaurants', data),
     getAllRestaurants: () => api.get('/api/superadmin/restaurants'),
     getRestaurantDetails: (id) => api.get(`/api/superadmin/restaurants/${id}/details`),
+    getRestaurantAnalytics: (id) => api.get(`/api/superadmin/restaurants/${id}/analytics`),
     toggleRestaurantFreeze: (id) => api.put(`/api/superadmin/restaurants/${id}/freeze`),
     deleteRestaurant: (id) => api.delete(`/api/superadmin/restaurants/${id}`),
 
