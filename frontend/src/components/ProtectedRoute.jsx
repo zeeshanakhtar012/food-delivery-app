@@ -5,15 +5,24 @@ const ProtectedRoute = ({ children, allowedRoles }) => {
     const { user, loading } = useAuth();
     const location = useLocation();
 
+    console.log('[ProtectedRoute] Checking access:', {
+        user: user ? { ...user, _token: 'HIDDEN' } : null,
+        allowedRoles,
+        currentPath: location.pathname
+    });
+
     if (loading) {
-        return <div className="flex items-center justify-center h-screen">Loading...</div>;
+        console.log('[ProtectedRoute] Loading state...');
+        return <div>Loading...</div>;
     }
 
     if (!user) {
+        console.warn('[ProtectedRoute] No user found, redirecting to login');
         return <Navigate to="/login" state={{ from: location }} replace />;
     }
 
     if (allowedRoles && !allowedRoles.includes(user.role)) {
+        console.warn(`[ProtectedRoute] Access denied. User role: ${user.role}, Allowed: ${allowedRoles}`);
         // Redirect based on role if they try to access unauthorized page
         if (user.role === 'super_admin') {
             return <Navigate to="/super-admin" replace />;
