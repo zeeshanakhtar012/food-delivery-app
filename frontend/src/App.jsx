@@ -4,10 +4,12 @@ import ProtectedRoute from './components/ProtectedRoute';
 import Login from './pages/Login';
 import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
 import Restaurants from './pages/SuperAdmin/Restaurants';
+import SuperAdminSettings from './pages/SuperAdmin/Settings';
 import RestaurantAdminDashboard from './pages/RestaurantAdmin/Dashboard';
 import Orders from './pages/RestaurantAdmin/Orders';
 import Menu from './pages/RestaurantAdmin/Menu';
 import Staff from './pages/RestaurantAdmin/Staff';
+import Settings from './pages/RestaurantAdmin/Settings';
 
 // Placeholder components
 const PlaceholderPage = ({ title }) => (
@@ -29,7 +31,7 @@ function App() {
             <Routes>
               <Route index element={<SuperAdminDashboard />} />
               <Route path="restaurants" element={<Restaurants />} /> {/* Changed to actual component */}
-              <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+              <Route path="settings" element={<SuperAdminSettings />} />
             </Routes>
           </Layout>
         </ProtectedRoute>
@@ -41,10 +43,10 @@ function App() {
           <Layout>
             <Routes>
               <Route index element={<RestaurantAdminDashboard />} />
-              <Route path="orders" element={<PlaceholderPage title="Orders Management" />} />
-              <Route path="menu" element={<PlaceholderPage title="Menu Management" />} />
-              <Route path="staff" element={<PlaceholderPage title="Staff Management" />} />
-              <Route path="settings" element={<PlaceholderPage title="Settings" />} />
+              <Route path="orders" element={<Orders />} />
+              <Route path="menu" element={<Menu />} />
+              <Route path="staff" element={<Staff />} />
+              <Route path="settings" element={<Settings />} />
             </Routes>
           </Layout>
         </ProtectedRoute>
