@@ -2,7 +2,6 @@ const AuditLog = require('../models/PostgreSQL/AuditLog');
 const { successResponse, errorResponse, paginatedResponse } = require('../helpers/response');
 const { getPaginationParams, getPaginationMeta } = require('../utils/pagination');
 
-// Get audit logs
 exports.getAuditLogs = async (req, res, next) => {
   try {
     const { page = 1, limit = 50 } = getPaginationParams(req);
@@ -34,7 +33,6 @@ exports.getAuditLogs = async (req, res, next) => {
   }
 };
 
-// Get logs by entity
 exports.getLogsByEntity = async (req, res, next) => {
   try {
     const { entity_type, entity_id } = req.params;
