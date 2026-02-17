@@ -277,31 +277,86 @@ exports.createOrder = async (req, res, next) => {
       return errorResponse(res, 'Items required', 400);
     }
 
-    // Calculate totals from DB prices to be safe (optional, but good practice)
-    // For now, assuming frontend sends valid data or we trust the admin. 
-    // Ideally, we should fetch Food items by IDs and calculate price.
-    // Let's implement basic calculation if price provided, else use DB lookups (skipping for complexity unless requested, assuming items have {food_id, quantity, price})
+    // Verify Stock Availability First
+    let totalAmount = 0;
+    for (const item of items) {
+      const foodId = item.food_id || item.id;
+      const quantity = parseInt(item.quantity) || 1;
 
-    let total_amount = 0;
-    items.forEach(item => {
-      total_amount += (item.price * item.quantity);
-    });
+      const food = await query('SELECT * FROM foods WHERE id = $1', [foodId]);
+      if (food.rows.length === 0) return errorResponse(res, `Food item not found: ${foodId}`, 404);
 
-    const orderData = {
-      restaurant_id: restaurantId,
-      total_amount,
-      items,
-      order_type: order_type || 'dine_in',
-      table_id: table_id || null,
-      guest_count: guest_count ? parseInt(guest_count) : null,
-      status: 'accepted', // Admin created orders start as accepted
-      delivery_lat: null,
-      delivery_lng: null,
-      user_id: null, // Walk-in / Guest
-      delivery_instructions: note
-    };
+      const foodItem = food.rows[0];
+      if (!foodItem.is_available) return errorResponse(res, `Item "${foodItem.name}" is currently unavailable`, 400);
 
-    const order = await Order.create(orderData);
+      if (!foodItem.is_unlimited && foodItem.stock_quantity < quantity) {
+        return errorResponse(res, `Insufficient stock for "${foodItem.name}". Only ${foodItem.stock_quantity} left.`, 400);
+      }
+      totalAmount += (foodItem.price * quantity); // Use DB price for total amount
+    }
+
+    // Create Order
+    // Note: status default is 'pending'
+    const orderSql = `
+      INSERT INTO orders (
+        restaurant_id,
+        user_id,
+        total_amount,
+        status,
+        delivery_lat,
+        delivery_lng,
+        table_id,
+        order_type,
+        customer_name,
+        customer_phone,
+        delivery_instructions
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+      RETURNING *
+    `;
+
+    const orderParams = [
+      restaurantId,
+      null, // user_id (for admin-created orders, customer is guest)
+      totalAmount,
+      'pending', // Admin created orders start as pending, then can be accepted
+      0.0, // delivery_lat (default for dine-in/pickup)
+      0.0, // delivery_lng (default for dine-in/pickup)
+      table_id || null,
+      order_type || 'dine_in',
+      customer_name || null,
+      customer_phone || null,
+      note || null
+    ];
+
+    const orderResult = await query(orderSql, orderParams);
+    const order = orderResult.rows[0];
+
+    // Create Order Items and Decrement Stock
+    for (const item of items) {
+      const foodId = item.food_id || item.id;
+      const quantity = parseInt(item.quantity);
+      const food = await query('SELECT price FROM foods WHERE id = $1', [foodId]); // Get actual price from DB
+
+      await query(
+        `INSERT INTO order_items (order_id, food_id, quantity, price, addons) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          order.id,
+          foodId,
+          quantity,
+          food.rows[0].price, // Use actual price from DB
+          JSON.stringify(item.addons || [])
+        ]
+      );
+
+      // Decrement stock if not unlimited
+      await query(
+        `UPDATE foods
+         SET stock_quantity = stock_quantity - $1
+         WHERE id = $2 AND is_unlimited = false`,
+        [quantity, foodId]
+      );
+    }
 
     // Emit Socket Event
     const io = req.app.get('io');

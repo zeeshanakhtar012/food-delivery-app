@@ -10,8 +10,8 @@ exports.login = async (req, res) => {
     const { email, password, restaurant_id } = req.body;
 
     if (!email || !password || !restaurant_id) {
-      return res.status(400).json({ 
-        message: 'Email, password, and restaurant_id are required' 
+      return res.status(400).json({
+        message: 'Email, password, and restaurant_id are required'
       });
     }
 
@@ -21,8 +21,8 @@ exports.login = async (req, res) => {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
     if (!restaurant.is_active) {
-      return res.status(403).json({ 
-        message: 'Restaurant account is frozen. Please contact support.' 
+      return res.status(403).json({
+        message: 'Restaurant account is frozen. Please contact support.'
       });
     }
 
@@ -66,6 +66,42 @@ exports.login = async (req, res) => {
   }
 };
 
+// Get available orders (unassigned and ready/preparing)
+exports.getAvailableOrders = async (req, res) => {
+  try {
+    const { query } = require('../config/db');
+    // Fetch orders that are 'accepted' or 'preparing' or 'ready' AND have NO rider_id
+    // And belong to the rider's restaurant? Or any restaurant?
+    // Usually riders are tied to a restaurant in this schema (user.restaurant_id).
+
+    // Note: If rider is "free", they can pick up orders.
+    const result = await query(
+      `SELECT o.*, 
+              u.name as user_name, u.phone as user_phone, u.avatar_url as user_avatar,
+              r.name as restaurant_name, r.address as restaurant_address, r.logo_url as restaurant_logo
+       FROM orders o
+       LEFT JOIN users u ON o.user_id = u.id
+       JOIN restaurants r ON o.restaurant_id = r.id
+       WHERE o.rider_id IS NULL 
+       AND o.status IN ('accepted', 'preparing', 'ready')
+       AND o.restaurant_id = $1
+       ORDER BY o.created_at ASC`, // Oldest first
+      [req.user.restaurant_id]
+    );
+
+    // Fetch items for each order (optional, but good for rider to see size)
+    // skipping distinct items fetch for speed, or can implement if needed.
+
+    res.json({
+      message: 'Available orders retrieved successfully',
+      orders: result.rows
+    });
+  } catch (error) {
+    console.error('Get available orders error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
 // Get assigned orders
 exports.getAssignedOrders = async (req, res) => {
   try {
@@ -93,8 +129,8 @@ exports.updateOrderStatus = async (req, res) => {
 
     const validStatuses = ['accepted', 'preparing', 'picked_up', 'delivered'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}` 
+      return res.status(400).json({
+        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
       });
     }
 
@@ -105,15 +141,15 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Verify order is assigned to this rider
     if (order.rider_id !== req.user.id) {
-      return res.status(403).json({ 
-        message: 'Access denied: Order is not assigned to you' 
+      return res.status(403).json({
+        message: 'Access denied: Order is not assigned to you'
       });
     }
 
     // Verify order belongs to rider's restaurant
     if (order.restaurant_id !== req.user.restaurant_id) {
-      return res.status(403).json({ 
-        message: 'Access denied: Order does not belong to your restaurant' 
+      return res.status(403).json({
+        message: 'Access denied: Order does not belong to your restaurant'
       });
     }
 
@@ -136,8 +172,8 @@ exports.sendLocation = async (req, res) => {
     const { lat, lng } = req.body;
 
     if (!lat || !lng) {
-      return res.status(400).json({ 
-        message: 'Latitude and longitude are required' 
+      return res.status(400).json({
+        message: 'Latitude and longitude are required'
       });
     }
 
@@ -148,8 +184,8 @@ exports.sendLocation = async (req, res) => {
 
     // Verify order is assigned to this rider
     if (order.rider_id !== req.user.id) {
-      return res.status(403).json({ 
-        message: 'Access denied: Order is not assigned to you' 
+      return res.status(403).json({
+        message: 'Access denied: Order is not assigned to you'
       });
     }
 
@@ -323,8 +359,8 @@ exports.updateStatus = async (req, res) => {
 
     const validStatuses = ['online', 'offline', 'busy'];
     if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({ 
-        message: `Status is required and must be one of: ${validStatuses.join(', ')}` 
+      return res.status(400).json({
+        message: `Status is required and must be one of: ${validStatuses.join(', ')}`
       });
     }
 
@@ -357,15 +393,15 @@ exports.acceptOrder = async (req, res) => {
 
     // Verify order is assigned to this rider or available
     if (order.rider_id && order.rider_id !== req.user.id) {
-      return res.status(403).json({ 
-        message: 'Access denied: Order is assigned to another rider' 
+      return res.status(403).json({
+        message: 'Access denied: Order is assigned to another rider'
       });
     }
 
     // Verify order belongs to rider's restaurant
     if (order.restaurant_id !== req.user.restaurant_id) {
-      return res.status(403).json({ 
-        message: 'Access denied: Order does not belong to your restaurant' 
+      return res.status(403).json({
+        message: 'Access denied: Order does not belong to your restaurant'
       });
     }
 
@@ -397,8 +433,8 @@ exports.rejectOrder = async (req, res) => {
 
     // Verify order is assigned to this rider
     if (order.rider_id !== req.user.id) {
-      return res.status(403).json({ 
-        message: 'Access denied: Order is not assigned to you' 
+      return res.status(403).json({
+        message: 'Access denied: Order is not assigned to you'
       });
     }
 

@@ -11,7 +11,8 @@ const migrations = [
     'createDiningTablesTable.js',
     'updateOrdersSchema.js',
     'addAddonsToOrderItems.js',
-    'createReservationsTable.js'
+    'createReservationsTable.js',
+    'addStockToFoods.js'
 ];
 
 async function runMigrations() {

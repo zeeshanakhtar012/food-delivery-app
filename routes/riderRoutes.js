@@ -12,6 +12,7 @@ router.use(authorize('rider'));
 router.use(requireRestaurantAccess);
 
 // Order management
+router.get('/orders/available', riderController.getAvailableOrders); // [NEW]
 router.get('/orders/assigned', riderController.getAssignedOrders);
 router.post('/orders/:id/accept', riderController.acceptOrder);
 router.post('/orders/:id/reject', riderController.rejectOrder);

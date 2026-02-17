@@ -11,8 +11,8 @@ exports.register = async (req, res) => {
     const { name, email, password, phone, restaurant_id } = req.body;
 
     if (!name || !email || !password || !restaurant_id) {
-      return res.status(400).json({ 
-        message: 'Name, email, password, and restaurant_id are required' 
+      return res.status(400).json({
+        message: 'Name, email, password, and restaurant_id are required'
       });
     }
 
@@ -22,16 +22,16 @@ exports.register = async (req, res) => {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
     if (!restaurant.is_active) {
-      return res.status(403).json({ 
-        message: 'Restaurant account is frozen. Please contact support.' 
+      return res.status(403).json({
+        message: 'Restaurant account is frozen. Please contact support.'
       });
     }
 
     // Check if user email exists for this restaurant
     const existingUser = await User.findByEmailAndRestaurant(email, restaurant_id);
     if (existingUser) {
-      return res.status(400).json({ 
-        message: 'Email already registered for this restaurant' 
+      return res.status(400).json({
+        message: 'Email already registered for this restaurant'
       });
     }
 
@@ -77,8 +77,8 @@ exports.login = async (req, res) => {
     const { email, password, restaurant_id } = req.body;
 
     if (!email || !password || !restaurant_id) {
-      return res.status(400).json({ 
-        message: 'Email, password, and restaurant_id are required' 
+      return res.status(400).json({
+        message: 'Email, password, and restaurant_id are required'
       });
     }
 
@@ -88,8 +88,8 @@ exports.login = async (req, res) => {
       return res.status(404).json({ message: 'Restaurant not found' });
     }
     if (!restaurant.is_active) {
-      return res.status(403).json({ 
-        message: 'Restaurant account is frozen. Please contact support.' 
+      return res.status(403).json({
+        message: 'Restaurant account is frozen. Please contact support.'
       });
     }
 
@@ -143,8 +143,8 @@ exports.getHomepage = async (req, res) => {
     // Verify restaurant is active
     const restaurant = await Restaurant.findById(restaurant_id);
     if (!restaurant || !restaurant.is_active) {
-      return res.status(403).json({ 
-        message: 'Restaurant account is frozen or not found' 
+      return res.status(403).json({
+        message: 'Restaurant account is frozen or not found'
       });
     }
 
@@ -183,8 +183,8 @@ exports.getHomepage = async (req, res) => {
 
       return {
         id: coupon.id,
-        title: `${coupon.type === 'percentage' ? discount_percentage + '%' : '$' + coupon.value} Off` + 
-               (coupon.code ? ` - ${coupon.code}` : ''),
+        title: `${coupon.type === 'percentage' ? discount_percentage + '%' : '$' + coupon.value} Off` +
+          (coupon.code ? ` - ${coupon.code}` : ''),
         discount_percentage: discount_percentage,
         image_url: null, // Coupons don't have images in current schema
         valid_till: coupon.valid_until
@@ -223,10 +223,10 @@ exports.getHomepage = async (req, res) => {
     });
   } catch (error) {
     console.error('Get homepage error:', error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
-      message: 'Server error', 
-      error: error.message 
+      message: 'Server error',
+      error: error.message
     });
   }
 };
@@ -244,8 +244,8 @@ exports.getFoods = async (req, res) => {
     // Verify restaurant is active
     const restaurant = await Restaurant.findById(restaurant_id);
     if (!restaurant || !restaurant.is_active) {
-      return res.status(403).json({ 
-        message: 'Restaurant account is frozen or not found' 
+      return res.status(403).json({
+        message: 'Restaurant account is frozen or not found'
       });
     }
 
@@ -267,14 +267,14 @@ exports.placeOrder = async (req, res) => {
     const { items, delivery_lat, delivery_lng } = req.body;
 
     if (!items || !Array.isArray(items) || items.length === 0) {
-      return res.status(400).json({ 
-        message: 'Order items are required' 
+      return res.status(400).json({
+        message: 'Order items are required'
       });
     }
 
     if (!delivery_lat || !delivery_lng) {
-      return res.status(400).json({ 
-        message: 'Delivery location (latitude and longitude) is required' 
+      return res.status(400).json({
+        message: 'Delivery location (latitude and longitude) is required'
       });
     }
 
@@ -282,8 +282,8 @@ exports.placeOrder = async (req, res) => {
     let total_amount = 0;
     for (const item of items) {
       if (!item.food_id || !item.quantity || !item.price) {
-        return res.status(400).json({ 
-          message: 'Each item must have food_id, quantity, and price' 
+        return res.status(400).json({
+          message: 'Each item must have food_id, quantity, and price'
         });
       }
       total_amount += parseFloat(item.price) * parseInt(item.quantity);
@@ -292,8 +292,8 @@ exports.placeOrder = async (req, res) => {
     // Verify restaurant is active
     const restaurant = await Restaurant.findById(req.user.restaurant_id);
     if (!restaurant || !restaurant.is_active) {
-      return res.status(403).json({ 
-        message: 'Restaurant account is frozen' 
+      return res.status(403).json({
+        message: 'Restaurant account is frozen'
       });
     }
 
@@ -301,14 +301,22 @@ exports.placeOrder = async (req, res) => {
     for (const item of items) {
       const food = await Food.findById(item.food_id);
       if (!food || food.restaurant_id !== req.user.restaurant_id) {
-        return res.status(400).json({ 
-          message: `Food ${item.food_id} not found or does not belong to restaurant` 
+        return res.status(400).json({
+          message: `Food ${item.food_id} not found or does not belong to restaurant`
         });
       }
       if (!food.is_available) {
-        return res.status(400).json({ 
-          message: `Food ${food.name} is not available` 
+        return res.status(400).json({
+          message: `Food ${food.name} is not available`
         });
+      }
+      // Check stock
+      if (food.stock_quantity !== undefined && food.stock_quantity !== null && !food.is_unlimited) {
+        if (food.stock_quantity < parseInt(item.quantity)) {
+          return res.status(400).json({
+            message: `Insufficient stock for ${food.name}. Only ${food.stock_quantity} left.`
+          });
+        }
       }
     }
 
@@ -343,8 +351,8 @@ exports.getOrderTracking = async (req, res) => {
 
     // Verify order belongs to user
     if (order.user_id !== req.user.id) {
-      return res.status(403).json({ 
-        message: 'Access denied: Order does not belong to you' 
+      return res.status(403).json({
+        message: 'Access denied: Order does not belong to you'
       });
     }
 

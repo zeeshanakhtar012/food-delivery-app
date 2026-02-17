@@ -6,13 +6,14 @@ const Food = {
   create: async (foodData) => {
     const { restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity } = foodData;
     const result = await query(
-      `INSERT INTO foods (id, restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      `INSERT INTO foods (id, restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity, is_unlimited)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         uuidv4(), restaurant_id, name, description || null, price, image_url || null,
         category_id || null, preparation_time || 15, is_available !== false,
-        stock_quantity !== undefined ? parseInt(stock_quantity) : 100 // Default to 100
+        stock_quantity !== undefined ? parseInt(stock_quantity) : 0,
+        is_unlimited !== false // Default true
       ]
     );
     return result.rows[0];
@@ -77,6 +78,10 @@ const Food = {
     if (stock_quantity !== undefined) {
       updates.push(`stock_quantity = $${paramCount++}`);
       values.push(parseInt(stock_quantity));
+    }
+    if (foodData.is_unlimited !== undefined) {
+      updates.push(`is_unlimited = $${paramCount++}`);
+      values.push(foodData.is_unlimited);
     }
 
     if (updates.length === 0) return null;
