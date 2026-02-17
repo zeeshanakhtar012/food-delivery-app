@@ -44,6 +44,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
+app.set('etag', false); // [DEBUG] Disable ETags to force 200 OK
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Test database connection
@@ -65,7 +66,7 @@ io.use(async (socket, next) => {
     }
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
-    
+
     // Check if restaurant is active (unless super admin)
     if (decoded.role !== 'super_admin' && decoded.restaurant_id) {
       const restaurant = await Restaurant.findById(decoded.restaurant_id);
@@ -220,6 +221,7 @@ app.use('/api/rider/wallet', require('./routes/riderWalletRoutes'));
 app.use('/api/admin/categories', require('./routes/restaurantCategoryRoutes'));
 app.use('/api/admin/addons', require('./routes/restaurantAddonRoutes'));
 app.use('/api/admin/staff', require('./routes/restaurantStaffRoutes'));
+app.use('/api/admin/reservations', require('./routes/restaurantReservationRoutes')); // [NEW] Reservations
 
 // Super Admin routes
 app.use('/api/banners', require('./routes/bannerRoutes'));
@@ -234,8 +236,8 @@ app.get('/', (req, res) => {
 
 // Health check
 app.get('/health', (req, res) => {
-  res.json({ 
-    status: 'OK', 
+  res.json({
+    status: 'OK',
     timestamp: new Date().toISOString(),
     database: 'PostgreSQL'
   });

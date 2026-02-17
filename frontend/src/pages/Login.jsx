@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { Eye, EyeOff, Lock, Mail, ChefHat, ArrowRight, Loader2 } from 'lucide-react';
+import ErrorDialog from '../components/ErrorDialog';
 
 const Login = () => {
     const [role, setRole] = useState('restaurant_admin');
@@ -9,6 +10,7 @@ const Login = () => {
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
     const [error, setError] = useState('');
+    const [isErrorDialogOpen, setIsErrorDialogOpen] = useState(false);
     const [loading, setLoading] = useState(false);
 
     const { login } = useAuth();
@@ -21,13 +23,19 @@ const Login = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
+        setIsErrorDialogOpen(false);
         setLoading(true);
 
         try {
             await login(role, { email, password });
             navigate(from, { replace: true });
         } catch (err) {
-            setError(err.response?.data?.error?.message || 'Login failed. Please verify your credentials.');
+            console.error("Login caught error:", err);
+            const errorMessage = err.response?.data?.message ||
+                err.response?.data?.error?.message ||
+                'Login failed. Please verify your credentials.';
+            setError(errorMessage);
+            setIsErrorDialogOpen(true);
         } finally {
             setLoading(false);
         }
@@ -35,6 +43,12 @@ const Login = () => {
 
     return (
         <div className="min-h-screen flex bg-background">
+            <ErrorDialog
+                isOpen={isErrorDialogOpen}
+                onClose={() => setIsErrorDialogOpen(false)}
+                title="Login Failed"
+                message={error}
+            />
             {/* Left Side - Hero/Branding */}
             <div className="hidden lg:flex w-1/2 bg-zinc-900 relative items-center justify-center overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-br from-zinc-900 via-zinc-800 to-black z-0" />
@@ -134,11 +148,11 @@ const Login = () => {
                             </div>
                         </div>
 
-                        {error && (
-                            <div className="bg-destructive/10 border border-destructive/20 rounded-lg p-4 flex items-start">
-                                <div className="ml-3 text-sm text-destructive font-medium">{error}</div>
-                            </div>
-                        )}
+                        {/* Inline error removed in favor of dialog, or kept as backup if needed? 
+                            User said "make sure that it shows the errors dialogs", so I'll remove the inline error to avoid duplication 
+                            or I can keep it consistent with the request which implies they want dialogs specifically.
+                            I will remove the inline error block to be cleaner as requested. 
+                         */}
 
                         <button
                             type="submit"

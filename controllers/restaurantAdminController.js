@@ -221,10 +221,14 @@ exports.deleteFood = async (req, res, next) => {
 exports.getAllOrders = async (req, res, next) => {
   try {
     const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+    console.log('[DEBUG] getAllOrders - Restaurant ID:', restaurantId);
+
     if (!restaurantId) {
       return errorResponse(res, 'Authentication error: Missing restaurant info', 401);
     }
     const orders = await Order.findByRestaurantId(restaurantId);
+    console.log('[DEBUG] getAllOrders - Found orders:', orders.length);
+
     return successResponse(res, orders, 'Orders retrieved');
   } catch (error) {
     next(error);
@@ -437,6 +441,20 @@ exports.getProfile = async (req, res, next) => {
     };
 
     return successResponse(res, safeAdmin, 'Profile retrieved');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getRestaurant = async (req, res, next) => {
+  try {
+    const restaurantId = req.user.restaurant_id;
+    if (!restaurantId) return errorResponse(res, 'No restaurant assigned', 404);
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+
+    return successResponse(res, restaurant, 'Restaurant details retrieved');
   } catch (error) {
     next(error);
   }

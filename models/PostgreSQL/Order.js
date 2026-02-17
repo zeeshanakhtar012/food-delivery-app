@@ -7,7 +7,8 @@ const Order = {
     const {
       user_id, restaurant_id, total_amount,
       delivery_lat, delivery_lng, items,
-      table_id, guest_count, order_type, status
+      table_id, guest_count, order_type, status,
+      reservation_id // [NEW]
     } = orderData;
 
     // Start transaction - create order
@@ -16,15 +17,16 @@ const Order = {
       `INSERT INTO orders (
          id, user_id, restaurant_id, total_amount, 
          delivery_lat, delivery_lng, table_id, guest_count, 
-         order_type, status
+         order_type, status, reservation_id
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
        RETURNING *`,
       [
         uuidv4(), user_id || null, restaurant_id, total_amount,
         delivery_lat || null, delivery_lng || null,
         table_id || null, guest_count || null,
-        order_type || 'delivery', status || 'pending'
+        order_type || 'delivery', status || 'pending',
+        reservation_id || null
       ]
     );
 
@@ -33,10 +35,20 @@ const Order = {
     // Create order items
     if (items && items.length > 0) {
       for (const item of items) {
+        // [NEW] Insert with addons
         await query(
-          `INSERT INTO order_items (id, order_id, food_id, quantity, price)
-           VALUES ($1, $2, $3, $4, $5)`,
-          [uuidv4(), order.id, item.food_id, item.quantity, item.price]
+          `INSERT INTO order_items (id, order_id, food_id, quantity, price, addons)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            uuidv4(), order.id, item.food_id, item.quantity, item.price,
+            JSON.stringify(item.addons || [])
+          ]
+        );
+
+        // [NEW] Decrement stock
+        await query(
+          `UPDATE foods SET stock_quantity = stock_quantity - $1 WHERE id = $2`,
+          [item.quantity, item.food_id]
         );
       }
     }
@@ -45,6 +57,14 @@ const Order = {
     if (table_id && status !== 'completed' && status !== 'cancelled') {
       const Table = require('./Table'); // Lazy load to avoid circular dependency if any
       await Table.update(table_id, { status: 'occupied' });
+    }
+
+    // [NEW] If reservation attached, mark as completed
+    if (reservation_id) {
+      await query(
+        `UPDATE reservations SET status = 'completed' WHERE id = $1`,
+        [reservation_id]
+      );
     }
 
     // Fetch order with items

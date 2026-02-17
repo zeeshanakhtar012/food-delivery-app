@@ -1,10 +1,12 @@
 import { useState, useEffect } from 'react';
 import { restaurantAdmin } from '../../services/api';
+import { API_CONFIG } from '../../config/api';
 import { Plus, Edit2, Trash2, Search, Image as ImageIcon, Loader2 } from 'lucide-react';
 import clsx from 'clsx';
 
 const Menu = () => {
     const [foods, setFoods] = useState([]);
+    const [categories, setCategories] = useState([]);
     const [loading, setLoading] = useState(true);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [editingFood, setEditingFood] = useState(null);
@@ -14,7 +16,7 @@ const Menu = () => {
         name: '',
         description: '',
         price: '',
-        category_id: '1', // Default category ID, ideally fetched from API
+        category_id: '',
         preparation_time: '15',
         is_available: true,
         image: null
@@ -22,20 +24,24 @@ const Menu = () => {
     const [imagePreview, setImagePreview] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(false);
 
-    const fetchFoods = async () => {
+    const fetchData = async () => {
         setLoading(true);
         try {
-            const response = await restaurantAdmin.getAllFoods();
-            setFoods(Array.isArray(response.data.data) ? response.data.data : []);
+            const [foodsResponse, categoriesResponse] = await Promise.all([
+                restaurantAdmin.getAllFoods(),
+                restaurantAdmin.getCategories()
+            ]);
+            setFoods(Array.isArray(foodsResponse.data.data) ? foodsResponse.data.data : []);
+            setCategories(Array.isArray(categoriesResponse.data.data) ? categoriesResponse.data.data : []);
         } catch (error) {
-            console.error('Failed to fetch foods', error);
+            console.error('Failed to fetch data', error);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchFoods();
+        fetchData();
     }, []);
 
     const handleInputChange = (e) => {
@@ -73,7 +79,7 @@ const Menu = () => {
                 name: '',
                 description: '',
                 price: '',
-                category_id: '1',
+                category_id: categories.length > 0 ? categories[0].id : '',
                 preparation_time: '15',
                 is_available: true,
                 image: null
@@ -106,7 +112,7 @@ const Menu = () => {
                 await restaurantAdmin.createFood(data);
             }
             setIsModalOpen(false);
-            fetchFoods();
+            fetchData();
         } catch (error) {
             console.error('Failed to save food', error);
             alert('Failed to save food item. ' + (error.response?.data?.message || ''));
@@ -151,7 +157,7 @@ const Menu = () => {
                         <div key={food.id} className="bg-card rounded-xl border shadow-sm overflow-hidden group hover:shadow-md transition-all">
                             <div className="aspect-video relative bg-muted flex items-center justify-center overflow-hidden">
                                 {food.image_url ? (
-                                    <img src={food.image_url.startsWith('http') ? food.image_url : `http://localhost:5001${food.image_url}`} alt={food.name} className="w-full h-full object-cover" />
+                                    <img src={food.image_url.startsWith('http') ? food.image_url : `${API_CONFIG.baseURL}${food.image_url.startsWith('/') ? '' : '/'}${food.image_url}`} alt={food.name} className="w-full h-full object-cover" />
                                 ) : (
                                     <ImageIcon className="text-muted-foreground h-12 w-12 opacity-50" />
                                 )}
@@ -236,13 +242,21 @@ const Menu = () => {
                                         />
                                     </div>
                                     <div className="flex-1">
-                                        <label className="block text-sm font-medium mb-1">Category ID</label>
-                                        <input
-                                            name="category_id" required
-                                            value={formData.category_id} onChange={handleInputChange}
+                                        <label className="block text-sm font-medium mb-1">Category</label>
+                                        <select
+                                            name="category_id"
+                                            required
+                                            value={formData.category_id}
+                                            onChange={handleInputChange}
                                             className="w-full px-3 py-2 border rounded-lg bg-background"
-                                            placeholder="e.g. 1"
-                                        />
+                                        >
+                                            <option value="" disabled>Select Category</option>
+                                            {categories.map(cat => (
+                                                <option key={cat.id} value={cat.id}>
+                                                    {cat.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
 

@@ -1,8 +1,8 @@
 export const API_CONFIG = {
-    isProduction: true,
+    isProduction: import.meta.env.PROD,
     get baseURL() {
-        return this.isProduction
-            ? 'https://api-food-delivery-app.onrender.com' // TODO: Update with actual production URL
-            : 'http://localhost:5001';
+        return import.meta.env.VITE_API_URL || (this.isProduction
+            ? 'https://api-food-delivery-app.onrender.com'
+            : 'http://localhost:5001');
     }
 };

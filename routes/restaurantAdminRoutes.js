@@ -129,10 +129,11 @@ router.put('/riders/:id/unblock', restaurantAdminController.unblockRider);
 router.get('/riders/performance', restaurantAdminController.getRiderPerformance);
 
 // ---------------------------------------------------------------------
-// PROFILE
+// PROFILE & RESTAURANT DETAILS
 // ---------------------------------------------------------------------
 router.get('/profile', restaurantAdminController.getProfile);
 router.put('/profile', restaurantAdminController.updateProfile);
+router.get('/restaurant', restaurantAdminController.getRestaurant); // [NEW] Get my restaurant details
 
 // ---------------------------------------------------------------------
 // ANALYTICS (basic)

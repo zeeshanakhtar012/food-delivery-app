@@ -93,12 +93,30 @@ export const restaurantAdmin = {
     getIncomeTrends: (params) => api.get('/api/admin/reports/income-trends', { params }),
     exportReport: (params) => api.get('/api/admin/reports/export', { params, responseType: 'blob' }),
 
+    // Categories
+    getCategories: () => api.get('/api/admin/categories'),
+    createCategory: (data) => api.post('/api/admin/categories', data),
+    updateCategory: (id, data) => api.put(`/api/admin/categories/${id}`, data),
+    deleteCategory: (id) => api.delete(`/api/admin/categories/${id}`),
+
+    // Addons
+    createAddon: (data) => api.post('/api/admin/addons', data),
+    getFoodAddons: (foodId) => api.get(`/api/admin/addons/food/${foodId}`),
+    updateAddon: (id, data) => api.put(`/api/admin/addons/${id}`, data),
+    deleteAddon: (id) => api.delete(`/api/admin/addons/${id}`),
+
+    // Reservations
+    createReservation: (data) => api.post('/api/admin/reservations', data),
+    getReservations: (params) => api.get('/api/admin/reservations', { params }),
+    updateReservation: (id, data) => api.put(`/api/admin/reservations/${id}`, data),
+    deleteReservation: (id) => api.delete(`/api/admin/reservations/${id}`),
+
     // Settings
     getProfile: () => api.get('/api/admin/profile'),
     updateProfile: (data) => api.put('/api/admin/profile', data),
+    getRestaurant: () => api.get('/api/admin/restaurant'), // [NEW]
 };
 
-// Super Admin Endpoints
 export const superAdmin = {
     // Restaurants
     createRestaurant: (data) => api.post('/api/superadmin/restaurants', data),
@@ -110,6 +128,11 @@ export const superAdmin = {
 
     // Analytics
     getPlatformAnalytics: () => api.get('/api/superadmin/analytics'),
+};
+
+// User Endpoints
+export const user = {
+    getRestaurantDetails: (id) => api.get(`/api/users/restaurants/${id}`),
 };
 
 export default api;

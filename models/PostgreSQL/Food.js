@@ -4,12 +4,16 @@ const { v4: uuidv4 } = require('uuid');
 const Food = {
   // Create food
   create: async (foodData) => {
-    const { restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available } = foodData;
+    const { restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity } = foodData;
     const result = await query(
-      `INSERT INTO foods (id, restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      `INSERT INTO foods (id, restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
        RETURNING *`,
-      [uuidv4(), restaurant_id, name, description || null, price, image_url || null, category_id || null, preparation_time || 15, is_available !== false]
+      [
+        uuidv4(), restaurant_id, name, description || null, price, image_url || null,
+        category_id || null, preparation_time || 15, is_available !== false,
+        stock_quantity !== undefined ? parseInt(stock_quantity) : 100 // Default to 100
+      ]
     );
     return result.rows[0];
   },
@@ -18,13 +22,13 @@ const Food = {
   findByRestaurantId: async (restaurant_id, is_available_only = false) => {
     let sql = 'SELECT * FROM foods WHERE restaurant_id = $1';
     const params = [restaurant_id];
-    
+
     if (is_available_only) {
-      sql += ' AND is_available = true';
+      sql += ' AND is_available = true AND stock_quantity > 0'; // [NEW] Filter out out-of-stock
     }
-    
+
     sql += ' ORDER BY created_at DESC';
-    
+
     const result = await query(sql, params);
     return result.rows;
   },
@@ -37,7 +41,7 @@ const Food = {
 
   // Update food
   update: async (id, foodData) => {
-    const { name, description, price, image_url, category_id, preparation_time, is_available } = foodData;
+    const { name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity } = foodData;
     const updates = [];
     const values = [];
     let paramCount = 1;
@@ -69,6 +73,10 @@ const Food = {
     if (is_available !== undefined) {
       updates.push(`is_available = $${paramCount++}`);
       values.push(is_available);
+    }
+    if (stock_quantity !== undefined) {
+      updates.push(`stock_quantity = $${paramCount++}`);
+      values.push(parseInt(stock_quantity));
     }
 
     if (updates.length === 0) return null;

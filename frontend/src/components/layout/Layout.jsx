@@ -15,7 +15,10 @@ import {
     Bell,
     Search,
     ChefHat,
-    BarChart3
+    BarChart3,
+    Layers,
+    Monitor, // [NEW]
+    Calendar // [NEW]
 } from 'lucide-react';
 import clsx from 'clsx';
 
@@ -60,7 +63,11 @@ const Sidebar = ({ role, collapsed, toggleCollapsed }) => {
     const restaurantAdminLinks = [
         { icon: LayoutDashboard, label: 'Dashboard', to: '/restaurant-admin' },
         { icon: ShoppingBag, label: 'Orders', to: '/restaurant-admin/orders' },
+        { icon: Monitor, label: 'POS', to: '/restaurant-admin/pos' },
+        { icon: ChefHat, label: 'KDS', to: '/restaurant-admin/kds' }, // [NEW]
         { icon: LayoutGrid, label: 'Tables', to: '/restaurant-admin/tables' },
+        { icon: Calendar, label: 'Reservations', to: '/restaurant-admin/reservations' }, // [NEW]
+        { icon: Layers, label: 'Categories', to: '/restaurant-admin/categories' },
         { icon: UtensilsCrossed, label: 'Menu Items', to: '/restaurant-admin/menu' },
         { icon: BarChart3, label: 'Reports', to: '/restaurant-admin/reports' },
         { icon: Users, label: 'Staff & Riders', to: '/restaurant-admin/staff' },
