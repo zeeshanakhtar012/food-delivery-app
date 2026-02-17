@@ -13,6 +13,8 @@ const {
   requireRestaurantAccess,
 } = require('../middleware/authMiddleware');
 
+const reservationController = require('../controllers/reservationController');
+
 // ---------------------------------------------------------------------
 // Multer configuration (unchanged)
 // ---------------------------------------------------------------------
@@ -127,6 +129,14 @@ router.get('/riders', restaurantAdminController.getAllRiders);
 router.put('/riders/:id/block', restaurantAdminController.blockRider);
 router.put('/riders/:id/unblock', restaurantAdminController.unblockRider);
 router.get('/riders/performance', restaurantAdminController.getRiderPerformance);
+
+// ---------------------------------------------------------------------
+// RESERVATIONS
+// ---------------------------------------------------------------------
+router.post('/reservations', reservationController.createReservation);
+router.get('/reservations', reservationController.getReservations);
+router.put('/reservations/:id', reservationController.updateReservation);
+router.delete('/reservations/:id', reservationController.deleteReservation);
 
 // ---------------------------------------------------------------------
 // PROFILE & RESTAURANT DETAILS
