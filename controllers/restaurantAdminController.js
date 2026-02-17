@@ -376,6 +376,24 @@ exports.updateProfile = async (req, res, next) => {
   }
 };
 
+exports.getRestaurant = async (req, res, next) => {
+  try {
+    const restaurantId = req.user.restaurant_id;
+    if (!restaurantId) {
+      return errorResponse(res, 'No restaurant assigned to this admin', 404);
+    }
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) {
+      return errorResponse(res, 'Restaurant not found', 404);
+    }
+
+    return successResponse(res, restaurant, 'Restaurant details retrieved');
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.getAnalytics = async (req, res, next) => {
   try {
     const restaurantId = req.restaurant_id || req.user?.restaurant_id;

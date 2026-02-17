@@ -121,6 +121,7 @@ router.get('/riders/performance', restaurantAdminController.getRiderPerformance)
 // ---------------------------------------------------------------------
 router.get('/profile', restaurantAdminController.getProfile);
 router.put('/profile', restaurantAdminController.updateProfile);
+router.get('/restaurant', restaurantAdminController.getRestaurant);
 
 // ---------------------------------------------------------------------
 // ANALYTICS (basic)
