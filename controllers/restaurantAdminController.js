@@ -95,6 +95,11 @@ exports.createFood = async (req, res, next) => {
     const is_available = req.body.is_available !== undefined ?
       (req.body.is_available === 'true' || req.body.is_available === true) : true;
 
+    // [NEW] Stock Management
+    const stock_quantity = req.body.stock_quantity ? parseInt(req.body.stock_quantity) : 0;
+    const is_unlimited = req.body.is_unlimited !== undefined ?
+      (req.body.is_unlimited === 'true' || req.body.is_unlimited === true) : true;
+
     // Get uploaded files (multer puts them in req.files)
     const foodImages = req.files?.foodImages;
 
@@ -119,6 +124,8 @@ exports.createFood = async (req, res, next) => {
       price,
       preparation_time,
       is_available,
+      stock_quantity,
+      is_unlimited,
       image_url,
       restaurant_id: restaurantId
     });
@@ -173,6 +180,12 @@ exports.updateFood = async (req, res, next) => {
     if (req.body.preparation_time !== undefined) updates.preparation_time = parseInt(req.body.preparation_time);
     if (req.body.is_available !== undefined) {
       updates.is_available = req.body.is_available === 'true' || req.body.is_available === true;
+    }
+    if (req.body.stock_quantity !== undefined) {
+      updates.stock_quantity = parseInt(req.body.stock_quantity);
+    }
+    if (req.body.is_unlimited !== undefined) {
+      updates.is_unlimited = req.body.is_unlimited === 'true' || req.body.is_unlimited === true;
     }
 
     // Handle image upload

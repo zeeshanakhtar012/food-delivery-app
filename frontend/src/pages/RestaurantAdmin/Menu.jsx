@@ -19,6 +19,8 @@ const Menu = () => {
         category_id: '',
         preparation_time: '15',
         is_available: true,
+        stock_quantity: '0',
+        is_unlimited: true,
         image: null
     });
     const [imagePreview, setImagePreview] = useState(null);
@@ -70,6 +72,8 @@ const Menu = () => {
                 category_id: food.category_id,
                 preparation_time: food.preparation_time,
                 is_available: food.is_available,
+                stock_quantity: food.stock_quantity || '0',
+                is_unlimited: food.is_unlimited !== false, // Default to true if undefined
                 image: null
             });
             setImagePreview(food.image_url ? `${food.image_url}` : null); // Adjust base URL if needed
@@ -82,6 +86,8 @@ const Menu = () => {
                 category_id: categories.length > 0 ? categories[0].id : '',
                 preparation_time: '15',
                 is_available: true,
+                stock_quantity: '0',
+                is_unlimited: true,
                 image: null
             });
             setImagePreview(null);
@@ -101,6 +107,8 @@ const Menu = () => {
         data.append('category_id', formData.category_id);
         data.append('preparation_time', formData.preparation_time);
         data.append('is_available', formData.is_available);
+        data.append('stock_quantity', formData.stock_quantity);
+        data.append('is_unlimited', formData.is_unlimited);
         if (formData.image) {
             data.append('foodImages', formData.image);
         }
@@ -257,6 +265,31 @@ const Menu = () => {
                                                 </option>
                                             ))}
                                         </select>
+                                    </div>
+                                </div>
+
+                                <div className="flex flex-col gap-4 sm:flex-row items-end">
+                                    <div className="flex-1">
+                                        <label className="block text-sm font-medium mb-1">Stock Quantity</label>
+                                        <input
+                                            name="stock_quantity"
+                                            type="number"
+                                            disabled={formData.is_unlimited}
+                                            value={formData.stock_quantity}
+                                            onChange={handleInputChange}
+                                            className="w-full px-3 py-2 border rounded-lg bg-background disabled:opacity-50"
+                                        />
+                                    </div>
+                                    <div className="flex items-center gap-2 pb-3">
+                                        <input
+                                            type="checkbox"
+                                            id="is_unlimited"
+                                            name="is_unlimited"
+                                            checked={formData.is_unlimited}
+                                            onChange={handleInputChange}
+                                            className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
+                                        />
+                                        <label htmlFor="is_unlimited" className="text-sm font-medium cursor-pointer">Unlimited Stock</label>
                                     </div>
                                 </div>
 
