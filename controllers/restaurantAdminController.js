@@ -264,6 +264,87 @@ exports.updateOrderStatus = async (req, res, next) => {
   }
 };
 
+exports.createOrder = async (req, res, next) => {
+  try {
+    const restaurantId = req.user.restaurant_id;
+    const { items, order_type, table_id, customer_name, customer_phone } = req.body;
+
+    if (!items || items.length === 0) {
+      return errorResponse(res, 'Order items required', 400);
+    }
+
+    // Calculate total
+    let totalAmount = 0;
+    items.forEach(item => {
+      totalAmount += (parseFloat(item.price) * parseInt(item.quantity));
+    });
+
+    // Create Order
+    // Note: status default is 'pending'
+    const orderSql = `
+      INSERT INTO orders (
+        restaurant_id, 
+        user_id, 
+        total_amount, 
+        status, 
+        delivery_lat, 
+        delivery_lng,
+        table_id,
+        order_type,
+        customer_name,
+        customer_phone
+      )
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      RETURNING *
+    `;
+
+    // For specific POS orders (Dine-in/Takeaway), we might not have a real user_id or delivery lat/lng.
+    // We should probably allow null user_id or use a placeholder if constraint exists.
+    // Schema says: user_id UUID NOT NULL... this is a problem for POS guest orders.
+    // We might need to create a "Guest User" or update schema to nullable.
+    // OPTION: Quick fix -> Use a "Guest" user ID if available, or just create one on the fly?
+    // Better: Update schema to allow NULL user_id for POS orders. 
+    // BUT migration is hard to change on live if not additive. 
+    // Let's assume for now we use a dummy UUID or the admin's ID if user_id is foreign key to users.
+    // Wait, users table is for app users.
+    // Let's check schema again. `user_id UUID NOT NULL REFERENCES users(id)`
+
+    // CRITICAL: We need to make user_id nullable for POS orders OR create a dummy guest user.
+    // Making it nullable is cleaner for POS.
+    // I will add a migration for this in the next step.
+    // For now, I'll write the code assuming it can be null or handled.
+
+    const orderParams = [
+      restaurantId,
+      null, // user_id (needs schema change)
+      totalAmount,
+      'pending',
+      0.0, // delivery_lat (placeholder)
+      0.0, // delivery_lng (placeholder)
+      table_id || null,
+      order_type || 'dine_in',
+      customer_name || null,
+      customer_phone || null
+    ];
+
+    const orderResult = await query(orderSql, orderParams);
+    const order = orderResult.rows[0];
+
+    // Create Order Items
+    for (const item of items) {
+      await query(
+        `INSERT INTO order_items (order_id, food_id, quantity, price) VALUES ($1, $2, $3, $4)`,
+        [order.id, item.food_id || item.id, item.quantity, item.price]
+      );
+    }
+
+    await logCreate(req.user.id, 'restaurant_admin', 'ORDER', order.id, order, req);
+    return successResponse(res, order, 'Order created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ============== RIDER MANAGEMENT ==============
 exports.createRider = async (req, res, next) => {
   try {
