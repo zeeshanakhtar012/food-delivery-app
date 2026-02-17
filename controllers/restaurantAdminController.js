@@ -333,8 +333,14 @@ exports.createOrder = async (req, res, next) => {
     // Create Order Items
     for (const item of items) {
       await query(
-        `INSERT INTO order_items (order_id, food_id, quantity, price) VALUES ($1, $2, $3, $4)`,
-        [order.id, item.food_id || item.id, item.quantity, item.price]
+        `INSERT INTO order_items (order_id, food_id, quantity, price, addons) VALUES ($1, $2, $3, $4, $5)`,
+        [
+          order.id,
+          item.food_id || item.id,
+          item.quantity,
+          item.price,
+          JSON.stringify(item.addons || []) // Save addons as JSON
+        ]
       );
     }
 
