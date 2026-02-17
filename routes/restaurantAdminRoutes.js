@@ -117,6 +117,15 @@ router.put('/riders/:id/unblock', restaurantAdminController.unblockRider);
 router.get('/riders/performance', restaurantAdminController.getRiderPerformance);
 
 // ---------------------------------------------------------------------
+// TABLE MANAGEMENT
+// ---------------------------------------------------------------------
+router.post('/tables', restaurantAdminController.createTable);
+router.get('/tables', restaurantAdminController.getAllTables);
+router.put('/tables/:id', restaurantAdminController.updateTable);
+router.delete('/tables/:id', restaurantAdminController.deleteTable);
+router.get('/tables/:id/active-order', restaurantAdminController.getTableActiveOrder);
+
+// ---------------------------------------------------------------------
 // PROFILE
 // ---------------------------------------------------------------------
 router.get('/profile', restaurantAdminController.getProfile);

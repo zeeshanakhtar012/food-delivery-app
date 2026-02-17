@@ -7,7 +7,8 @@ const scripts = [
     'migrateFoodAddonsTable.js',
     'migrateRestaurantStaffTable.js',
     'migrateCouponsAndBanners.js',
-    'createAuditLogsTable.js'
+    'createAuditLogsTable.js',
+    'createDiningTablesTable.js'
 ];
 
 async function runMigrations() {
