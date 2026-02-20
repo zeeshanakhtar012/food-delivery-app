@@ -5,7 +5,12 @@ export const KitchenReceipt = React.forwardRef(({ order, tableNumber }, ref) => 
     if (!order) return null;
 
     return (
-        <div ref={ref} className="p-4 w-[80mm] font-mono text-black print:block hidden">
+        <div ref={ref} className="p-4 w-[80mm] font-mono text-black bg-white">
+            {/* Thermal printer CSS — included in react-to-print iframe */}
+            <style>{`
+                @page { size: 80mm auto; margin: 0mm; }
+                html, body { margin: 0; padding: 0; width: 80mm; }
+            `}</style>
             {/* Header */}
             <div className="text-center border-b-2 border-dashed border-black pb-2 mb-2">
                 <h2 className="text-2xl font-bold">KITCHEN TICKET</h2>

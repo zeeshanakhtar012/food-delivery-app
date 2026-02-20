@@ -4,7 +4,7 @@ const { v4: uuidv4 } = require('uuid');
 const Food = {
   // Create food
   create: async (foodData) => {
-    const { restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity } = foodData;
+    const { restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity, is_unlimited } = foodData;
     const result = await query(
       `INSERT INTO foods (id, restaurant_id, name, description, price, image_url, category_id, preparation_time, is_available, stock_quantity, is_unlimited)
        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)

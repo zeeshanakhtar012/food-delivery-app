@@ -211,7 +211,7 @@ const Order = {
     );
 
     // If order is completed or cancelled, free up the table
-    if (result.rows.length > 0 && (status === 'delivered' || status === 'cancelled' || status === 'picked_up')) {
+    if (result.rows.length > 0 && (status === 'delivered' || status === 'completed' || status === 'cancelled' || status === 'picked_up')) {
       const order = result.rows[0];
       if (order.table_id) {
         const Table = require('./Table');
@@ -294,13 +294,44 @@ const Order = {
     );
     const avgOrderValue = parseFloat(avgOrderResult.rows[0].avg || 0);
 
+    // Get last 7 days daily sales for chart
+    const chartResult = await query(
+      `SELECT
+         TO_CHAR(DATE(created_at), 'Mon DD') as name,
+         COALESCE(SUM(total_amount), 0)::float as sales,
+         COUNT(id)::int as orders
+       FROM orders
+       WHERE restaurant_id = $1
+         AND status != 'cancelled'
+         AND created_at >= NOW() - INTERVAL '7 days'
+       GROUP BY DATE(created_at), name
+       ORDER BY DATE(created_at) ASC`,
+      [restaurant_id]
+    );
+    const last7DaysSales = chartResult.rows;
+
+    // Get 5 most recent orders for the dashboard feed
+    const recentListResult = await query(
+      `SELECT o.id, o.status, o.total_amount, o.order_type, o.created_at,
+              o.customer_name, t.table_number
+       FROM orders o
+       LEFT JOIN restaurant_tables t ON o.table_id = t.id
+       WHERE o.restaurant_id = $1
+       ORDER BY o.created_at DESC
+       LIMIT 5`,
+      [restaurant_id]
+    );
+    const recentOrdersList = recentListResult.rows;
+
     return {
       totalOrders,
       totalRevenue,
       recentOrders,
       avgOrderValue,
       ordersByStatus,
-      salesByType
+      salesByType,
+      last7DaysSales,
+      recentOrdersList,
     };
   },
 

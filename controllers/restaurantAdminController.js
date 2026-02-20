@@ -261,7 +261,7 @@ exports.updateOrderStatus = async (req, res, next) => {
     const { status } = req.body;
 
     // Use the actual order_status enum values from schema
-    const validStatuses = ['pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'cancelled'];
+    const validStatuses = ['pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return errorResponse(res, `Invalid status. Must be one of: ${validStatuses.join(', ')}`, 400);
     }
@@ -287,6 +287,7 @@ exports.createOrder = async (req, res, next) => {
     const { items, table_id, guest_count, order_type, customer_phone, customer_name, note } = req.body;
 
     if (!items || items.length === 0) {
+      console.error('[ORDER_ERROR] No items in request body');
       return errorResponse(res, 'Items required', 400);
     }
 
@@ -297,12 +298,19 @@ exports.createOrder = async (req, res, next) => {
       const quantity = parseInt(item.quantity) || 1;
 
       const food = await query('SELECT * FROM foods WHERE id = $1', [foodId]);
-      if (food.rows.length === 0) return errorResponse(res, `Food item not found: ${foodId}`, 404);
+      if (food.rows.length === 0) {
+        console.error(`[ORDER_ERROR] Food item not found: ${foodId}`);
+        return errorResponse(res, `Food item not found: ${foodId}`, 404);
+      }
 
       const foodItem = food.rows[0];
-      if (!foodItem.is_available) return errorResponse(res, `Item "${foodItem.name}" is currently unavailable`, 400);
+      if (!foodItem.is_available) {
+        console.error(`[ORDER_ERROR] Item unavailable: ${foodItem.name} (${foodId})`);
+        return errorResponse(res, `Item "${foodItem.name}" is currently unavailable`, 400);
+      }
 
       if (!foodItem.is_unlimited && foodItem.stock_quantity < quantity) {
+        console.error(`[ORDER_ERROR] Insufficient stock for ${foodItem.name}: Requested ${quantity}, Available ${foodItem.stock_quantity}`);
         return errorResponse(res, `Insufficient stock for "${foodItem.name}". Only ${foodItem.stock_quantity} left.`, 400);
       }
       totalAmount += (foodItem.price * quantity); // Use DB price for total amount

@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { restaurantAdmin } from '../../services/api';
 import { Plus, Edit2, Trash2, Loader2, Layers } from 'lucide-react';
+import ImportExportPanel from '../../components/ImportExportPanel';
 
 const Categories = () => {
     const [categories, setCategories] = useState([]);
@@ -110,13 +111,16 @@ const Categories = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Categories</h1>
                     <p className="text-muted-foreground">Manage food categories for your menu.</p>
                 </div>
-                <button
-                    onClick={() => openModal()}
-                    className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
-                >
-                    <Plus size={18} />
-                    Add Category
-                </button>
+                <div className="flex items-center gap-3">
+                    <ImportExportPanel onImportComplete={fetchCategories} />
+                    <button
+                        onClick={() => openModal()}
+                        className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
+                    >
+                        <Plus size={18} />
+                        Add Category
+                    </button>
+                </div>
             </div>
 
             {loading ? (

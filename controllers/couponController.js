@@ -18,7 +18,7 @@ exports.createCoupon = async (req, res, next) => {
       is_active = true
     } = req.body;
 
-    if (!code || !type || !value || !valid_from || !valid_until) {
+    if (!code || !type || value === undefined || value === null || value === '' || !valid_from || !valid_until) {
       return errorResponse(res, 'Code, type, value, valid_from, and valid_until are required', 400);
     }
 

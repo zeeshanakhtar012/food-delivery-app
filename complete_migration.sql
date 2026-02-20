@@ -12,7 +12,7 @@ BEGIN
         CREATE TYPE admin_role AS ENUM ('super_admin', 'restaurant_admin');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
-        CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'cancelled');
+        CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'completed', 'cancelled');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method') THEN
         CREATE TYPE payment_method AS ENUM ('cash', 'card', 'wallet', 'stripe', 'paypal');
@@ -172,7 +172,8 @@ CREATE TABLE IF NOT EXISTS foods (
     preparation_time INTEGER DEFAULT 15,
     rating DECIMAL(2,1) DEFAULT 0.0,
     total_reviews INTEGER DEFAULT 0,
-    stock_quantity INTEGER DEFAULT NULL,
+    stock_quantity INTEGER DEFAULT 0,
+    is_unlimited BOOLEAN DEFAULT TRUE,
     is_featured BOOLEAN DEFAULT FALSE,
     sort_order INTEGER DEFAULT 0,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -210,6 +211,8 @@ CREATE TABLE IF NOT EXISTS orders (
     rider_id UUID REFERENCES riders(id) ON DELETE SET NULL,
     table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL, -- Added
     guest_count INTEGER, -- Added
+    customer_name VARCHAR(255), -- Added
+    customer_phone VARCHAR(50), -- Added
     total_amount DECIMAL(10, 2) NOT NULL,
     status order_status DEFAULT 'pending',
     delivery_lat DECIMAL(10, 8), -- Made Nullable in logic (DB allows null if not specified NOT NULL in create, but verifying below)
@@ -219,7 +222,7 @@ CREATE TABLE IF NOT EXISTS orders (
     payment_method payment_method DEFAULT 'cash',
     payment_status payment_status DEFAULT 'pending',
     delivery_address TEXT,
-    delivery_instructions TEXT,
+    delivery_instructions TEXT, -- Added
     sub_total DECIMAL(10,2) DEFAULT 0,
     tax_amount DECIMAL(10,2) DEFAULT 0,
     delivery_fee_amount DECIMAL(10,2) DEFAULT 0,
@@ -239,8 +242,22 @@ CREATE TABLE IF NOT EXISTS order_items (
     food_id UUID NOT NULL REFERENCES foods(id) ON DELETE CASCADE,
     quantity INTEGER NOT NULL DEFAULT 1,
     price DECIMAL(10, 2) NOT NULL,
+    addons JSONB DEFAULT '[]'::jsonb,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+-- Idempotent patches for existing databases
+ALTER TABLE order_items ADD COLUMN IF NOT EXISTS addons JSONB DEFAULT '[]'::jsonb;
+-- Add 'completed' to order_status enum if it doesn't already exist
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum
+        WHERE enumlabel = 'completed'
+        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'order_status')
+    ) THEN
+        ALTER TYPE order_status ADD VALUE 'completed';
+    END IF;
+END$$;
 
 CREATE TABLE IF NOT EXISTS order_tracking (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -545,3 +562,20 @@ CREATE INDEX IF NOT EXISTS idx_orders_user_id ON orders(user_id);
 CREATE INDEX IF NOT EXISTS idx_orders_rider_id ON orders(rider_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
+
+-- 12. Reservations (New)
+CREATE TABLE IF NOT EXISTS reservations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_phone VARCHAR(50) NOT NULL,
+    guest_count INTEGER NOT NULL DEFAULT 1,
+    reservation_time TIMESTAMP NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, cancelled, seated, completed
+    special_requests TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_id ON reservations(restaurant_id);
