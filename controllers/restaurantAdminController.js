@@ -316,6 +316,20 @@ exports.createOrder = async (req, res, next) => {
       totalAmount += (foodItem.price * quantity); // Use DB price for total amount
     }
 
+    // Validate table_id — must belong to this restaurant, otherwise null to avoid FK violation
+    let validatedTableId = null;
+    if (table_id) {
+      const tableCheck = await query(
+        'SELECT id FROM restaurant_tables WHERE id = $1 AND restaurant_id = $2',
+        [table_id, restaurantId]
+      );
+      if (tableCheck.rows.length > 0) {
+        validatedTableId = table_id;
+      } else {
+        console.warn(`[ORDER_WARN] table_id ${table_id} not found for restaurant ${restaurantId} — creating order without table assignment`);
+      }
+    }
+
     // Create Order
     // Note: status default is 'pending'
     const orderSql = `
@@ -340,10 +354,10 @@ exports.createOrder = async (req, res, next) => {
       restaurantId,
       null, // user_id (for admin-created orders, customer is guest)
       totalAmount,
-      'pending', // Admin created orders start as pending, then can be accepted
-      0.0, // delivery_lat (default for dine-in/pickup)
-      0.0, // delivery_lng (default for dine-in/pickup)
-      table_id || null,
+      'pending',
+      0.0,
+      0.0,
+      validatedTableId,
       order_type || 'dine_in',
       customer_name || null,
       customer_phone || null,
@@ -352,6 +366,7 @@ exports.createOrder = async (req, res, next) => {
 
     const orderResult = await query(orderSql, orderParams);
     const order = orderResult.rows[0];
+
 
     // Create Order Items and Decrement Stock
     for (const item of items) {
