@@ -1,48 +1,53 @@
 const { exec } = require('child_process');
 const path = require('path');
 
-const scripts = [
+const migrations = [
     'setupDatabase.js',
     'createFoodCategoriesTable.js',
-    'migrateFoodAddonsTable.js',
+    'migrateFoodsTable.js',
     'migrateRestaurantStaffTable.js',
     'migrateCouponsAndBanners.js',
     'createAuditLogsTable.js',
     'createDiningTablesTable.js',
     'updateOrdersSchema.js',
-    'addAddonsToOrderItems.js'
+    'addAddonsToOrderItems.js',
+    'createReservationsTable.js',
+    'addStockToFoods.js'
 ];
 
 async function runMigrations() {
-    console.log('🚀 Starting deployment migrations...');
+    console.log('🚀 Starting deployment migrations...\n');
 
-    for (const script of scripts) {
-        const scriptPath = path.join(__dirname, script);
-        console.log(`\n⏳ Running ${script}...`);
-
+    for (const migration of migrations) {
+        console.log(`⏳ Running ${migration}...`);
         try {
             await new Promise((resolve, reject) => {
-                exec(`node ${scriptPath}`, (error, stdout, stderr) => {
-                    if (error) {
-                        console.error(`❌ Error running ${script}:`, error);
-                        console.error(stderr);
-                        reject(error);
-                        return;
+                const child = exec(`node ${path.join(__dirname, migration)}`);
+
+                child.stdout.on('data', (data) => {
+                    console.log(data.toString());
+                });
+
+                child.stderr.on('data', (data) => {
+                    console.error(data.toString());
+                });
+
+                child.on('exit', (code) => {
+                    if (code === 0) {
+                        console.log(`✅ ${migration} completed.\n`);
+                        resolve();
+                    } else {
+                        reject(new Error(`Migration failed with code ${code}`));
                     }
-                    console.log(stdout);
-                    if (stderr) console.error(stderr);
-                    resolve();
                 });
             });
-            console.log(`✅ ${script} completed.`);
-        } catch (err) {
-            console.error(`❌ Migration failed at ${script}. Stopping.`);
+        } catch (error) {
+            console.error(`❌ Migration failed at ${migration}. Stopping.`);
             process.exit(1);
         }
     }
 
-    console.log('\n🎉 All migrations completed successfully!');
-    process.exit(0);
+    console.log('🎉 All migrations completed successfully!');
 }
 
 runMigrations();

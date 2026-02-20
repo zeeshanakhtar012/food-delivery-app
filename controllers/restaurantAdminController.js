@@ -95,6 +95,11 @@ exports.createFood = async (req, res, next) => {
     const is_available = req.body.is_available !== undefined ?
       (req.body.is_available === 'true' || req.body.is_available === true) : true;
 
+    // [NEW] Stock Management
+    const stock_quantity = req.body.stock_quantity ? parseInt(req.body.stock_quantity) : 0;
+    const is_unlimited = req.body.is_unlimited !== undefined ?
+      (req.body.is_unlimited === 'true' || req.body.is_unlimited === true) : true;
+
     // Get uploaded files (multer puts them in req.files)
     const foodImages = req.files?.foodImages;
 
@@ -119,6 +124,8 @@ exports.createFood = async (req, res, next) => {
       price,
       preparation_time,
       is_available,
+      stock_quantity,
+      is_unlimited,
       image_url,
       restaurant_id: restaurantId
     });
@@ -174,6 +181,12 @@ exports.updateFood = async (req, res, next) => {
     if (req.body.is_available !== undefined) {
       updates.is_available = req.body.is_available === 'true' || req.body.is_available === true;
     }
+    if (req.body.stock_quantity !== undefined) {
+      updates.stock_quantity = parseInt(req.body.stock_quantity);
+    }
+    if (req.body.is_unlimited !== undefined) {
+      updates.is_unlimited = req.body.is_unlimited === 'true' || req.body.is_unlimited === true;
+    }
 
     // Handle image upload
     const foodImages = req.files?.foodImages;
@@ -221,10 +234,14 @@ exports.deleteFood = async (req, res, next) => {
 exports.getAllOrders = async (req, res, next) => {
   try {
     const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+    console.log('[DEBUG] getAllOrders - Restaurant ID:', restaurantId);
+
     if (!restaurantId) {
       return errorResponse(res, 'Authentication error: Missing restaurant info', 401);
     }
     const orders = await Order.findByRestaurantId(restaurantId);
+    console.log('[DEBUG] getAllOrders - Found orders:', orders.length);
+
     return successResponse(res, orders, 'Orders retrieved');
   } catch (error) {
     next(error);
@@ -244,7 +261,7 @@ exports.updateOrderStatus = async (req, res, next) => {
     const { status } = req.body;
 
     // Use the actual order_status enum values from schema
-    const validStatuses = ['pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'cancelled'];
+    const validStatuses = ['pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'completed', 'cancelled'];
     if (!validStatuses.includes(status)) {
       return errorResponse(res, `Invalid status. Must be one of: ${validStatuses.join(', ')}`, 400);
     }
@@ -267,85 +284,148 @@ exports.updateOrderStatus = async (req, res, next) => {
 exports.createOrder = async (req, res, next) => {
   try {
     const restaurantId = req.user.restaurant_id;
-    const { items, order_type, table_id, customer_name, customer_phone } = req.body;
+    const { items, table_id, guest_count, order_type, customer_phone, customer_name, note } = req.body;
 
     if (!items || items.length === 0) {
-      return errorResponse(res, 'Order items required', 400);
+      console.error('[ORDER_ERROR] No items in request body');
+      return errorResponse(res, 'Items required', 400);
     }
 
-    // Calculate total
+    // Verify Stock Availability First
     let totalAmount = 0;
-    items.forEach(item => {
-      totalAmount += (parseFloat(item.price) * parseInt(item.quantity));
-    });
+    for (const item of items) {
+      const foodId = item.food_id || item.id;
+      const quantity = parseInt(item.quantity) || 1;
+
+      const food = await query('SELECT * FROM foods WHERE id = $1', [foodId]);
+      if (food.rows.length === 0) {
+        console.error(`[ORDER_ERROR] Food item not found: ${foodId}`);
+        return errorResponse(res, `Food item not found: ${foodId}`, 404);
+      }
+
+      const foodItem = food.rows[0];
+      if (!foodItem.is_available) {
+        console.error(`[ORDER_ERROR] Item unavailable: ${foodItem.name} (${foodId})`);
+        return errorResponse(res, `Item "${foodItem.name}" is currently unavailable`, 400);
+      }
+
+      if (!foodItem.is_unlimited && foodItem.stock_quantity < quantity) {
+        console.error(`[ORDER_ERROR] Insufficient stock for ${foodItem.name}: Requested ${quantity}, Available ${foodItem.stock_quantity}`);
+        return errorResponse(res, `Insufficient stock for "${foodItem.name}". Only ${foodItem.stock_quantity} left.`, 400);
+      }
+      totalAmount += (foodItem.price * quantity); // Use DB price for total amount
+    }
 
     // Create Order
     // Note: status default is 'pending'
     const orderSql = `
       INSERT INTO orders (
-        restaurant_id, 
-        user_id, 
-        total_amount, 
-        status, 
-        delivery_lat, 
+        restaurant_id,
+        user_id,
+        total_amount,
+        status,
+        delivery_lat,
         delivery_lng,
         table_id,
         order_type,
         customer_name,
-        customer_phone
+        customer_phone,
+        delivery_instructions
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
       RETURNING *
     `;
 
-    // For specific POS orders (Dine-in/Takeaway), we might not have a real user_id or delivery lat/lng.
-    // We should probably allow null user_id or use a placeholder if constraint exists.
-    // Schema says: user_id UUID NOT NULL... this is a problem for POS guest orders.
-    // We might need to create a "Guest User" or update schema to nullable.
-    // OPTION: Quick fix -> Use a "Guest" user ID if available, or just create one on the fly?
-    // Better: Update schema to allow NULL user_id for POS orders. 
-    // BUT migration is hard to change on live if not additive. 
-    // Let's assume for now we use a dummy UUID or the admin's ID if user_id is foreign key to users.
-    // Wait, users table is for app users.
-    // Let's check schema again. `user_id UUID NOT NULL REFERENCES users(id)`
-
-    // CRITICAL: We need to make user_id nullable for POS orders OR create a dummy guest user.
-    // Making it nullable is cleaner for POS.
-    // I will add a migration for this in the next step.
-    // For now, I'll write the code assuming it can be null or handled.
-
     const orderParams = [
       restaurantId,
-      null, // user_id (needs schema change)
+      null, // user_id (for admin-created orders, customer is guest)
       totalAmount,
-      'pending',
-      0.0, // delivery_lat (placeholder)
-      0.0, // delivery_lng (placeholder)
+      'pending', // Admin created orders start as pending, then can be accepted
+      0.0, // delivery_lat (default for dine-in/pickup)
+      0.0, // delivery_lng (default for dine-in/pickup)
       table_id || null,
       order_type || 'dine_in',
       customer_name || null,
-      customer_phone || null
+      customer_phone || null,
+      note || null
     ];
 
     const orderResult = await query(orderSql, orderParams);
     const order = orderResult.rows[0];
 
-    // Create Order Items
+    // Create Order Items and Decrement Stock
     for (const item of items) {
+      const foodId = item.food_id || item.id;
+      const quantity = parseInt(item.quantity);
+      const food = await query('SELECT price FROM foods WHERE id = $1', [foodId]); // Get actual price from DB
+
       await query(
         `INSERT INTO order_items (order_id, food_id, quantity, price, addons) VALUES ($1, $2, $3, $4, $5)`,
         [
           order.id,
-          item.food_id || item.id,
-          item.quantity,
-          item.price,
-          JSON.stringify(item.addons || []) // Save addons as JSON
+          foodId,
+          quantity,
+          food.rows[0].price, // Use actual price from DB
+          JSON.stringify(item.addons || [])
         ]
       );
+
+      // Decrement stock if not unlimited
+      await query(
+        `UPDATE foods
+         SET stock_quantity = stock_quantity - $1
+         WHERE id = $2 AND is_unlimited = false`,
+        [quantity, foodId]
+      );
+    }
+
+    // Emit Socket Event
+    const io = req.app.get('io');
+    io.to(`restaurant:${restaurantId}`).emit('newOrder', order);
+
+    // If table assigned, emit table update
+    if (table_id) {
+      io.to(`restaurant:${restaurantId}`).emit('tableStatusUpdate', {
+        table_id: table_id,
+        status: 'occupied'
+      });
     }
 
     await logCreate(req.user.id, 'restaurant_admin', 'ORDER', order.id, order, req);
     return successResponse(res, order, 'Order created successfully', 201);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.updateOrderItems = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { items } = req.body; // Expecting array of { food_id, quantity, price }
+    const restaurantId = req.user.restaurant_id;
+
+    if (!items || items.length === 0) {
+      return errorResponse(res, 'New items are required', 400);
+    }
+
+    const order = await Order.findById(id);
+    if (!order || order.restaurant_id !== restaurantId) {
+      return errorResponse(res, 'Order not found', 404);
+    }
+
+    if (order.status === 'delivered' || order.status === 'cancelled' || order.status === 'picked_up') {
+      return errorResponse(res, 'Cannot modify completed order', 400);
+    }
+
+    const updatedOrder = await Order.addItems(id, items);
+
+    // Emit socket event
+    const io = req.app.get('io');
+    io.to(`restaurant:${restaurantId}`).emit('orderUpdated', updatedOrder);
+
+    await logUpdate(req.user.id, 'restaurant_admin', 'ORDER', id, order, updatedOrder, req);
+
+    return successResponse(res, updatedOrder, 'Order updated with new items');
   } catch (error) {
     next(error);
   }
@@ -442,6 +522,20 @@ exports.getProfile = async (req, res, next) => {
   }
 };
 
+exports.getRestaurant = async (req, res, next) => {
+  try {
+    const restaurantId = req.user.restaurant_id;
+    if (!restaurantId) return errorResponse(res, 'No restaurant assigned', 404);
+
+    const restaurant = await Restaurant.findById(restaurantId);
+    if (!restaurant) return errorResponse(res, 'Restaurant not found', 404);
+
+    return successResponse(res, restaurant, 'Restaurant details retrieved');
+  } catch (error) {
+    next(error);
+  }
+};
+
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user?.id;
@@ -458,24 +552,6 @@ exports.updateProfile = async (req, res, next) => {
 
     await logUpdate(userId, 'restaurant_admin', 'PROFILE', userId, admin, updated, req);
     return successResponse(res, updated, 'Profile updated');
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.getRestaurant = async (req, res, next) => {
-  try {
-    const restaurantId = req.user.restaurant_id;
-    if (!restaurantId) {
-      return errorResponse(res, 'No restaurant assigned to this admin', 404);
-    }
-
-    const restaurant = await Restaurant.findById(restaurantId);
-    if (!restaurant) {
-      return errorResponse(res, 'Restaurant not found', 404);
-    }
-
-    return successResponse(res, restaurant, 'Restaurant details retrieved');
   } catch (error) {
     next(error);
   }
@@ -923,113 +999,6 @@ exports.unblockRider = async (req, res, next) => {
 
     await logUpdate(req.user.id, 'restaurant_admin', 'RIDER_UNBLOCK', id, { is_blocked: true }, { is_blocked: false }, req);
     return successResponse(res, result.rows[0], 'Rider unblocked successfully');
-  } catch (error) {
-    next(error);
-  }
-};
-
-// ============== TABLE MANAGEMENT ==============
-exports.createTable = async (req, res, next) => {
-  try {
-    const restaurantId = req.user.restaurant_id;
-    const { table_number, capacity, section, qr_code } = req.body;
-
-    if (!table_number) return errorResponse(res, 'Table number required', 400);
-
-    const check = await query('SELECT * FROM dining_tables WHERE restaurant_id = $1 AND table_number = $2', [restaurantId, table_number]);
-    if (check.rows.length > 0) return errorResponse(res, 'Table number already exists', 400);
-
-    const result = await query(
-      `INSERT INTO dining_tables (restaurant_id, table_number, capacity, section, qr_code)
-       VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-      [restaurantId, table_number, capacity || 4, section || 'Main Hall', qr_code]
-    );
-
-    await logCreate(req.user.id, 'restaurant_admin', 'TABLE', result.rows[0].id, result.rows[0], req);
-    return successResponse(res, result.rows[0], 'Table created', 201);
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.getAllTables = async (req, res, next) => {
-  try {
-    const restaurantId = req.user.restaurant_id;
-    const result = await query('SELECT * FROM dining_tables WHERE restaurant_id = $1 ORDER BY table_number ASC', [restaurantId]);
-    return successResponse(res, result.rows, 'Tables retrieved');
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.updateTable = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const restaurantId = req.user.restaurant_id;
-    const updates = req.body;
-
-    const table = await query('SELECT * FROM dining_tables WHERE id = $1 AND restaurant_id = $2', [id, restaurantId]);
-    if (table.rows.length === 0) return errorResponse(res, 'Table not found', 404);
-
-    const { table_number, capacity, section, status, is_active } = updates;
-
-    let updateFields = [];
-    let params = [id, restaurantId];
-    let idx = 3;
-
-    if (table_number) { updateFields.push(`table_number = $${idx++}`); params.push(table_number); }
-    if (capacity) { updateFields.push(`capacity = $${idx++}`); params.push(capacity); }
-    if (section) { updateFields.push(`section = $${idx++}`); params.push(section); }
-    if (status) { updateFields.push(`status = $${idx++}`); params.push(status); }
-    if (is_active !== undefined) { updateFields.push(`is_active = $${idx++}`); params.push(is_active); }
-
-    if (updateFields.length === 0) return errorResponse(res, 'No changes provided', 400);
-
-    const sql = `UPDATE dining_tables SET ${updateFields.join(', ')} WHERE id = $1 AND restaurant_id = $2 RETURNING *`;
-    const result = await query(sql, params);
-
-    await logUpdate(req.user.id, 'restaurant_admin', 'TABLE', id, table.rows[0], result.rows[0], req);
-    return successResponse(res, result.rows[0], 'Table updated');
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.deleteTable = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const restaurantId = req.user.restaurant_id;
-
-    const table = await query('SELECT * FROM dining_tables WHERE id = $1 AND restaurant_id = $2', [id, restaurantId]);
-    if (table.rows.length === 0) return errorResponse(res, 'Table not found', 404);
-
-    await query('DELETE FROM dining_tables WHERE id = $1', [id]);
-    await logDelete(req.user.id, 'restaurant_admin', 'TABLE', id, table.rows[0], req);
-    return successResponse(res, null, 'Table deleted');
-  } catch (error) {
-    next(error);
-  }
-};
-
-exports.getTableActiveOrder = async (req, res, next) => {
-  try {
-    const { id } = req.params;
-    const restaurantId = req.user.restaurant_id;
-
-    // Check active order with table_id
-    const sql = `
-            SELECT * FROM orders 
-            WHERE restaurant_id = $1 
-            AND table_id = $2
-            AND status NOT IN ('delivered', 'cancelled', 'picked_up')
-            ORDER BY created_at DESC
-            LIMIT 1
-        `;
-    // table_id column is added by createDiningTablesTable.js migration
-
-    const result = await query(sql, [restaurantId, id]);
-
-    return successResponse(res, result.rows[0] || null, 'Active order retrieved');
   } catch (error) {
     next(error);
   }

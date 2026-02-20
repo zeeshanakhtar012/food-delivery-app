@@ -79,7 +79,7 @@ const MenuGrid = ({
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-gray-400">No Image</div>
                                     )}
-                                    {food.stock_quantity <= 0 && (
+                                    {!food.is_unlimited && food.stock_quantity <= 0 && (
                                         <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold">
                                             Out of Stock
                                         </div>

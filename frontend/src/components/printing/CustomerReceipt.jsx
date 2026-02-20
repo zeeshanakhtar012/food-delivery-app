@@ -11,7 +11,12 @@ export const CustomerReceipt = React.forwardRef(({ order, restaurant, tableNumbe
     };
 
     return (
-        <div ref={ref} className="p-4 w-[80mm] font-serif text-black print:block hidden">
+        <div ref={ref} className="p-4 w-[80mm] font-serif text-black bg-white">
+            {/* Thermal printer CSS — included in react-to-print iframe */}
+            <style>{`
+                @page { size: 80mm auto; margin: 0mm; }
+                html, body { margin: 0; padding: 0; width: 80mm; }
+            `}</style>
             {/* Header */}
             <div className="text-center mb-4">
                 {restaurant.logo_url && (

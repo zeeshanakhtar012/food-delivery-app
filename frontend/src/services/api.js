@@ -114,7 +114,12 @@ export const restaurantAdmin = {
     // Settings
     getProfile: () => api.get('/api/admin/profile'),
     updateProfile: (data) => api.put('/api/admin/profile', data),
-    getRestaurant: () => api.get('/api/admin/restaurant'), // [NEW]
+    getRestaurant: () => api.get('/api/admin/restaurant'),
+
+    // Coupons
+    getCoupons: () => api.get('/api/coupons'),
+    createCoupon: (data) => api.post('/api/coupons', data),
+    deleteCoupon: (id) => api.delete(`/api/coupons/${id}`),
 };
 
 export const superAdmin = {

@@ -25,7 +25,12 @@ const server = http.createServer(app);
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: process.env.FRONTEND_URL || 'http://localhost:5173',
+    origin: [
+      process.env.FRONTEND_URL,
+      'http://localhost:5173',
+      'http://localhost:3000',
+      'https://food-delivery-admin-ffwg.onrender.com'
+    ].filter(Boolean),
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -58,6 +63,7 @@ app.use(cors({
 }));
 app.use(express.json());
 app.use(morgan('dev'));
+app.set('etag', false); // [DEBUG] Disable ETags to force 200 OK
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
 
 // Test database connection
@@ -234,6 +240,7 @@ app.use('/api/rider/wallet', require('./routes/riderWalletRoutes'));
 app.use('/api/admin/categories', require('./routes/restaurantCategoryRoutes'));
 app.use('/api/admin/addons', require('./routes/restaurantAddonRoutes'));
 app.use('/api/admin/staff', require('./routes/restaurantStaffRoutes'));
+app.use('/api/admin/reservations', require('./routes/restaurantReservationRoutes')); // [NEW] Reservations
 
 // Super Admin routes
 app.use('/api/banners', require('./routes/bannerRoutes'));

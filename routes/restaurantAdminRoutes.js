@@ -6,11 +6,14 @@ const path = require('path');
 const fs = require('fs');
 
 const restaurantAdminController = require('../controllers/restaurantAdminController');
+const restaurantTableController = require('../controllers/restaurantTableController');
 const {
   authenticate,
   authorize,
   requireRestaurantAccess,
 } = require('../middleware/authMiddleware');
+
+const reservationController = require('../controllers/reservationController');
 
 // ---------------------------------------------------------------------
 // Multer configuration (unchanged)
@@ -104,9 +107,19 @@ router.delete('/foods/:id', restaurantAdminController.deleteFood);
 // ---------------------------------------------------------------------
 // ORDER MANAGEMENT
 // ---------------------------------------------------------------------
+router.post('/orders', restaurantAdminController.createOrder); // [NEW] Manual Order
+router.put('/orders/:id/items', restaurantAdminController.updateOrderItems); // [NEW] Add items
 router.get('/orders', restaurantAdminController.getAllOrders);
-router.post('/orders', restaurantAdminController.createOrder); // [NEW] PO
 router.put('/orders/:id/status', restaurantAdminController.updateOrderStatus);
+
+// ---------------------------------------------------------------------
+// TABLE MANAGEMENT
+// ---------------------------------------------------------------------
+router.post('/tables', restaurantTableController.createTable);
+router.get('/tables', restaurantTableController.getTables);
+router.get('/tables/:id/order', restaurantTableController.getTableActiveOrder); // [NEW] Get active order
+router.put('/tables/:id', restaurantTableController.updateTable);
+router.delete('/tables/:id', restaurantTableController.deleteTable);
 
 // ---------------------------------------------------------------------
 // RIDER MANAGEMENT
@@ -118,20 +131,19 @@ router.put('/riders/:id/unblock', restaurantAdminController.unblockRider);
 router.get('/riders/performance', restaurantAdminController.getRiderPerformance);
 
 // ---------------------------------------------------------------------
-// TABLE MANAGEMENT
+// RESERVATIONS
 // ---------------------------------------------------------------------
-router.post('/tables', restaurantAdminController.createTable);
-router.get('/tables', restaurantAdminController.getAllTables);
-router.put('/tables/:id', restaurantAdminController.updateTable);
-router.delete('/tables/:id', restaurantAdminController.deleteTable);
-router.get('/tables/:id/active-order', restaurantAdminController.getTableActiveOrder);
+router.post('/reservations', reservationController.createReservation);
+router.get('/reservations', reservationController.getReservations);
+router.put('/reservations/:id', reservationController.updateReservation);
+router.delete('/reservations/:id', reservationController.deleteReservation);
 
 // ---------------------------------------------------------------------
-// PROFILE
+// PROFILE & RESTAURANT DETAILS
 // ---------------------------------------------------------------------
 router.get('/profile', restaurantAdminController.getProfile);
 router.put('/profile', restaurantAdminController.updateProfile);
-router.get('/restaurant', restaurantAdminController.getRestaurant);
+router.get('/restaurant', restaurantAdminController.getRestaurant); // [NEW] Get my restaurant details
 
 // ---------------------------------------------------------------------
 // ANALYTICS (basic)
@@ -144,20 +156,20 @@ router.get('/analytics', restaurantAdminController.getAnalytics);
 router.get('/reports/sales', restaurantAdminController.getSalesReport);
 router.get('/reports/income', restaurantAdminController.getIncomeReport);
 router.get('/reports/top-products', restaurantAdminController.getTopProducts);
-router.get('/reports/remaining-items', restaurantAdminController.getLowStockItems);
+router.get('/reports/low-stock', restaurantAdminController.getLowStockItems); // Renamed from remaining-items
 router.get('/reports/export', restaurantAdminController.exportReport);
 
 // ---------------------------------------------------------------------
 // PRODUCT & CATEGORY INSIGHTS
 // ---------------------------------------------------------------------
-router.get('/analytics/products-summary', restaurantAdminController.getProductsSummary);
-router.get('/analytics/category-performance', restaurantAdminController.getCategoryPerformance);
+router.get('/reports/products-summary', restaurantAdminController.getProductsSummary); // Moved to reports
+router.get('/reports/category-performance', restaurantAdminController.getCategoryPerformance); // Moved to reports
 
 // ---------------------------------------------------------------------
 // INCOME OVERVIEW
 // ---------------------------------------------------------------------
-router.get('/income/summary', restaurantAdminController.getIncomeSummary);
-router.get('/income/trends', restaurantAdminController.getIncomeTrends);
+router.get('/reports/income-summary', restaurantAdminController.getIncomeSummary); // Moved to reports
+router.get('/reports/income-trends', restaurantAdminController.getIncomeTrends); // Moved to reports
 
 // ---------------------------------------------------------------------
 // EXPORT THE ROUTER
