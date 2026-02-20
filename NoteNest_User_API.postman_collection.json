@@ -43,8 +43,14 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/register",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "register"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"register"
+							]
 						},
 						"description": "Register a new user. Token will be automatically saved."
 					}
@@ -83,8 +89,14 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/login",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "login"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"login"
+							]
 						},
 						"description": "Login as user. Token will be automatically saved."
 					}
@@ -106,8 +118,14 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/home",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "home"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"home"
+							]
 						},
 						"description": "Get homepage data including sliders, promotions, food categories, and featured foods"
 					}
@@ -129,8 +147,14 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/foods",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "foods"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"foods"
+							]
 						},
 						"description": "Get all available foods for the restaurant"
 					}
@@ -160,8 +184,14 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/cart",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "cart"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"cart"
+							]
 						},
 						"description": "Add food item to cart"
 					}
@@ -178,8 +208,14 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/cart",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "cart"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"cart"
+							]
 						},
 						"description": "Get current cart items"
 					}
@@ -196,8 +232,15 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/cart/count",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "cart", "count"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"cart",
+								"count"
+							]
 						},
 						"description": "Get total item count in cart"
 					}
@@ -222,8 +265,15 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/cart/:id",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "cart", ":id"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"cart",
+								":id"
+							],
 							"variable": [
 								{
 									"key": "id",
@@ -247,8 +297,15 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/cart/:id",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "cart", ":id"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"cart",
+								":id"
+							],
 							"variable": [
 								{
 									"key": "id",
@@ -272,8 +329,14 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/cart",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "cart"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"cart"
+							]
 						},
 						"description": "Clear all items from cart"
 					}
@@ -303,8 +366,14 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/addresses",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "addresses"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"addresses"
+							]
 						},
 						"description": "Create a new delivery address"
 					}
@@ -321,8 +390,14 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/addresses",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "addresses"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"addresses"
+							]
 						},
 						"description": "Get all delivery addresses"
 					}
@@ -339,8 +414,15 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/addresses/:id",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "addresses", ":id"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"addresses",
+								":id"
+							],
 							"variable": [
 								{
 									"key": "id",
@@ -372,8 +454,15 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/addresses/:id",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "addresses", ":id"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"addresses",
+								":id"
+							],
 							"variable": [
 								{
 									"key": "id",
@@ -397,8 +486,16 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/addresses/:id/default",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "addresses", ":id", "default"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"addresses",
+								":id",
+								"default"
+							],
 							"variable": [
 								{
 									"key": "id",
@@ -422,8 +519,15 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/addresses/:id",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "addresses", ":id"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"addresses",
+								":id"
+							],
 							"variable": [
 								{
 									"key": "id",
@@ -460,8 +564,15 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/restaurants",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "restaurants"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"restaurants"
+							]
 						},
 						"description": "Add restaurant to favorites"
 					}
@@ -478,8 +589,16 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/restaurants/:restaurant_id",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "restaurants", ":restaurant_id"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"restaurants",
+								":restaurant_id"
+							],
 							"variable": [
 								{
 									"key": "restaurant_id",
@@ -503,8 +622,15 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/restaurants",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "restaurants"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"restaurants"
+							]
 						},
 						"description": "Get all favorite restaurants"
 					}
@@ -521,8 +647,17 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/restaurants/:restaurant_id/check",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "restaurants", ":restaurant_id", "check"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"restaurants",
+								":restaurant_id",
+								"check"
+							],
 							"variable": [
 								{
 									"key": "restaurant_id",
@@ -554,8 +689,15 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/foods",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "foods"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"foods"
+							]
 						},
 						"description": "Add food to favorites"
 					}
@@ -572,8 +714,16 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/foods/:food_id",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "foods", ":food_id"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"foods",
+								":food_id"
+							],
 							"variable": [
 								{
 									"key": "food_id",
@@ -597,8 +747,15 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/foods",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "foods"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"foods"
+							]
 						},
 						"description": "Get all favorite foods"
 					}
@@ -615,8 +772,17 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/favorites/foods/:food_id/check",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "favorites", "foods", ":food_id", "check"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"favorites",
+								"foods",
+								":food_id",
+								"check"
+							],
 							"variable": [
 								{
 									"key": "food_id",
@@ -653,8 +819,14 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/orders",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "orders"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"orders"
+							]
 						},
 						"description": "Place a new order"
 					}
@@ -671,8 +843,14 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/orders",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "orders"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"orders"
+							]
 						},
 						"description": "Get all orders for the current user"
 					}
@@ -689,8 +867,16 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/orders/:id/track",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "orders", ":id", "track"],
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"orders",
+								":id",
+								"track"
+							],
 							"variable": [
 								{
 									"key": "id",
@@ -719,8 +905,14 @@
 						],
 						"url": {
 							"raw": "{{base_url}}/api/user/profile",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "profile"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"profile"
+							]
 						},
 						"description": "Get current user profile"
 					}
@@ -745,8 +937,14 @@
 						},
 						"url": {
 							"raw": "{{base_url}}/api/user/profile",
-							"host": ["{{base_url}}"],
-							"path": ["api", "user", "profile"]
+							"host": [
+								"{{base_url}}"
+							],
+							"path": [
+								"api",
+								"user",
+								"profile"
+							]
 						},
 						"description": "Update user profile"
 					}
@@ -797,4 +995,3 @@
 		}
 	]
 }
-
