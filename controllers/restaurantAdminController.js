@@ -258,7 +258,7 @@ exports.updateOrderStatus = async (req, res, next) => {
     }
 
     const { id } = req.params;
-    const { status } = req.body;
+    const { status, rider_id } = req.body;
 
     // Use the actual order_status enum values from schema
     const validStatuses = ['pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'completed', 'cancelled'];
@@ -272,14 +272,23 @@ exports.updateOrderStatus = async (req, res, next) => {
     }
 
     const oldStatus = order.status;
-    await Order.updateStatus(id, status);
+    // Pass rider_id (null if not provided) to allow rider assignment
+    await Order.updateStatus(id, status, rider_id || null);
 
-    await logUpdate(userId, 'restaurant_admin', 'ORDER', id, { status: oldStatus }, { status }, req);
-    return successResponse(res, { id, status }, 'Status updated');
+    // Emit real-time status update to restaurant socket room
+    const io = req.app.get('io');
+    if (io) {
+      io.to(`restaurant:${restaurantId}`).emit('orderStatusUpdated', { id, status, rider_id: rider_id || null });
+    }
+
+    await logUpdate(userId, 'restaurant_admin', 'ORDER', id, { status: oldStatus }, { status, rider_id }, req);
+    return successResponse(res, { id, status, rider_id: rider_id || null }, 'Status updated');
   } catch (error) {
     next(error);
   }
 };
+
+
 
 exports.createOrder = async (req, res, next) => {
   try {

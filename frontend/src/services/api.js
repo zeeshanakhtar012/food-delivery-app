@@ -63,7 +63,9 @@ export const restaurantAdmin = {
 
     // Orders
     getAllOrders: () => api.get('/api/admin/orders'),
-    updateOrderStatus: (id, status) => api.put(`/api/admin/orders/${id}/status`, { status }),
+    updateOrderStatus: (id, status, riderId = null) => api.put(`/api/admin/orders/${id}/status`, { status, rider_id: riderId }),
+    assignRider: (id, riderId) => api.put(`/api/admin/orders/${id}/status`, { status: 'picked_up', rider_id: riderId }),
+
     createOrder: (data) => api.post('/api/admin/orders', data),
     updateOrderItems: (id, items) => api.put(`/api/admin/orders/${id}/items`, { items }),
 
