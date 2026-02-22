@@ -31,25 +31,25 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 const checkCorsOrigin = function (origin, callback) {
-  // Allow requests with no origin (like mobile apps or curl requests)
+  // 1. Allow requests with no origin (like mobile apps or curl)
   if (!origin) return callback(null, true);
 
-  // Allow local development ports seamlessly
-  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('http://192.168.')) {
+  // 2. Define allowance criteria
+  const isLocal = origin.startsWith('http://localhost') ||
+    origin.startsWith('http://127.0.0.1') ||
+    origin.startsWith('http://192.168.');
+
+  const isRender = origin.endsWith('.onrender.com');
+  const isExplicitlyAllowed = allowedOrigins.includes(origin);
+
+  // 3. Final decision
+  if (isLocal || isRender || isExplicitlyAllowed) {
     return callback(null, true);
   }
 
-  // Allow any Render subdomain for the project
-  if (origin.endsWith('.onrender.com')) {
-    return callback(null, true);
-  }
-
-  if (allowedOrigins.includes(origin)) {
-    return callback(null, true);
-  }
-
+  // 4. Reject if not allowed
   console.error('[CORS Rejected] Origin:', origin);
-  return callback(new Error(`CORS blocked: ${origin} is not allowed by policy.`), false);
+  return callback(null, false);
 };
 
 // Socket.IO setup
