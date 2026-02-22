@@ -1,5 +1,6 @@
 import React from 'react';
 import moment from 'moment';
+import { API_CONFIG } from '../../config/api';
 
 export const CustomerReceipt = React.forwardRef(({ order, restaurant, tableNumber }, ref) => {
     if (!order || !restaurant) return null;
@@ -20,7 +21,7 @@ export const CustomerReceipt = React.forwardRef(({ order, restaurant, tableNumbe
             {/* Header */}
             <div className="text-center mb-4">
                 {restaurant.logo_url && (
-                    <img src={restaurant.logo_url} alt="Logo" className="h-12 mx-auto mb-2 grayscale" />
+                    <img src={`${API_CONFIG.baseURL}${restaurant.logo_url}`} alt="Logo" className="h-12 mx-auto mb-2 grayscale" />
                 )}
                 <h1 className="text-xl font-bold uppercase">{restaurant.name}</h1>
                 <p className="text-xs">{restaurant.address}</p>

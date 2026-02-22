@@ -10,7 +10,7 @@ const Cart = ({
     loading
 }) => {
     return (
-        <div className="flex flex-col h-full bg-white border-l shadow-xl w-96">
+        <div className="flex flex-col h-full bg-white border-l shadow-xl w-full lg:w-96 shrink-0 z-10">
             {/* Header */}
             <div className="p-4 border-b bg-gray-50">
                 <div className="flex items-center gap-2 mb-1">
