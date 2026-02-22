@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Search, X } from 'lucide-react';
+import { Search, X, Layers, Grid } from 'lucide-react';
 import clsx from 'clsx';
+import { API_CONFIG } from '../../config/api';
 
 const MenuGrid = ({
     categories,
@@ -65,16 +66,17 @@ const MenuGrid = ({
                 </div>
 
                 {/* Category Pills */}
-                <div className="flex gap-2 overflow-x-auto pb-2 scrollbar-hide">
+                <div className="flex flex-wrap gap-2">
                     <button
                         onClick={() => onSelectCategory('all')}
                         className={clsx(
-                            "px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors",
+                            "px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-all flex items-center gap-2 border",
                             selectedCategory === 'all'
-                                ? "bg-indigo-600 text-white"
-                                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+                                : "bg-white border-gray-200 text-gray-700 hover:border-indigo-300 hover:bg-gray-50"
                         )}
                     >
+                        <Grid size={16} />
                         All Items
                     </button>
                     {categories.map(cat => (
@@ -82,12 +84,21 @@ const MenuGrid = ({
                             key={cat.id}
                             onClick={() => onSelectCategory(cat.id)}
                             className={clsx(
-                                "px-4 py-2 rounded-full whitespace-nowrap text-sm font-medium transition-colors",
+                                "px-4 py-2 rounded-lg whitespace-nowrap text-sm font-medium transition-all flex items-center gap-2 border",
                                 selectedCategory === cat.id
-                                    ? "bg-indigo-600 text-white"
-                                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                                    ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
+                                    : "bg-white border-gray-200 text-gray-700 hover:border-indigo-300 hover:bg-gray-50"
                             )}
                         >
+                            {cat.image_url ? (
+                                <img
+                                    src={`${API_CONFIG.baseURL}${cat.image_url}`}
+                                    alt=""
+                                    className="w-5 h-5 rounded-full object-cover"
+                                />
+                            ) : (
+                                <Layers size={16} />
+                            )}
                             {cat.name}
                         </button>
                     ))}
@@ -127,31 +138,42 @@ const MenuGrid = ({
                                 key={food.id}
                                 onClick={() => food.is_available && onAddToCart(food)}
                                 className={clsx(
-                                    "bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden border border-transparent hover:border-indigo-500",
+                                    "bg-white rounded-xl shadow-sm hover:shadow-md transition-all cursor-pointer overflow-hidden border border-transparent hover:border-indigo-500 flex flex-col",
                                     (!food.is_available || (!food.is_unlimited && food.stock_quantity <= 0))
                                     && "opacity-60 cursor-not-allowed"
                                 )}
                             >
-                                <div className="h-32 bg-gray-200 relative">
+                                <div className="h-32 bg-gray-200 relative shrink-0">
                                     {food.image_url ? (
-                                        <img src={food.image_url} alt={food.name} className="w-full h-full object-cover" />
+                                        <img
+                                            src={`${API_CONFIG.baseURL}${food.image_url}`}
+                                            alt={food.name}
+                                            className="w-full h-full object-cover"
+                                        />
                                     ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-gray-400 text-xs">No Image</div>
+                                        <div className="w-full h-full flex items-center justify-center text-gray-400 flex-col gap-1">
+                                            <Layers size={24} className="opacity-20" />
+                                            <span className="text-xs">No Image</span>
+                                        </div>
                                     )}
                                     {!food.is_unlimited && food.stock_quantity <= 0 && (
-                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-sm">
+                                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center text-white font-bold text-xs uppercase tracking-wider">
                                             Out of Stock
                                         </div>
                                     )}
                                 </div>
                                 <div className="p-3">
-                                    <h3 className="font-semibold text-gray-800 truncate">{food.name}</h3>
+                                    <h3 className="font-semibold text-gray-800 truncate text-sm">{food.name}</h3>
                                     {searchQuery.trim() && food.description && (
                                         <p className="text-xs text-gray-500 truncate mt-0.5">{food.description}</p>
                                     )}
                                     <div className="flex justify-between items-center mt-1">
-                                        <span className="text-indigo-600 font-bold">${parseFloat(food.price).toFixed(2)}</span>
-                                        <span className="text-xs text-gray-500">{food.preparation_time}m</span>
+                                        <span className="text-indigo-600 font-bold text-sm">
+                                            ${parseFloat(food.price).toFixed(2)}
+                                        </span>
+                                        <span className="text-[10px] text-gray-400 bg-gray-100 px-1.5 py-0.5 rounded">
+                                            {food.preparation_time}m
+                                        </span>
                                     </div>
                                 </div>
                             </div>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { restaurantAdmin } from '../../services/api';
-import { Plus, Edit2, Trash2, Loader2, Layers } from 'lucide-react';
+import { Plus, Edit2, Trash2, Loader2, Layers, Image as ImageIcon, X } from 'lucide-react';
 import ImportExportPanel from '../../components/ImportExportPanel';
+import { API_CONFIG } from '../../config/api';
 
 const Categories = () => {
     const [categories, setCategories] = useState([]);
@@ -16,6 +17,8 @@ const Categories = () => {
         sort_order: 0,
         is_active: true
     });
+    const [imageFile, setImageFile] = useState(null);
+    const [imagePreview, setImagePreview] = useState(null);
     const [submitLoading, setSubmitLoading] = useState(false);
 
     const fetchCategories = async () => {
@@ -42,6 +45,23 @@ const Categories = () => {
         }));
     };
 
+    const handleImageChange = (e) => {
+        const file = e.target.files[0];
+        if (file) {
+            setImageFile(file);
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                setImagePreview(reader.result);
+            };
+            reader.readAsDataURL(file);
+        }
+    };
+
+    const removeImage = () => {
+        setImageFile(null);
+        setImagePreview(null);
+    };
+
     const openModal = (category = null) => {
         if (category) {
             setEditingCategory(category);
@@ -51,6 +71,8 @@ const Categories = () => {
                 sort_order: category.sort_order || 0,
                 is_active: category.is_active
             });
+            setImagePreview(category.image_url ? `${API_CONFIG.baseURL}${category.image_url}` : null);
+            setImageFile(null);
         } else {
             setEditingCategory(null);
             setFormData({
@@ -59,6 +81,8 @@ const Categories = () => {
                 sort_order: 0,
                 is_active: true
             });
+            setImagePreview(null);
+            setImageFile(null);
         }
         setIsModalOpen(true);
     };
@@ -68,19 +92,19 @@ const Categories = () => {
         setSubmitLoading(true);
 
         try {
-            // Note: Update not implemented in API service yet, only create/get
-            // Based on typical pattern, if ID exists, update, else create.
-            // Assuming we will add update/delete to API service or verify existence.
-            // *Wait, looking at api.js, createCategory exists. update/delete for categories were NOT added yet.*
-            // *I need to update api.js FIRST or handle this.*
-            // *Actually checking api.js again... I only added getCategories and createCategory.*
-            // *Refactoring this step to just include create for now, I'll update API next.*
+            const data = new FormData();
+            data.append('name', formData.name);
+            data.append('description', formData.description);
+            data.append('sort_order', formData.sort_order);
+            data.append('is_active', formData.is_active);
+            if (imageFile) {
+                data.append('image', imageFile);
+            }
 
-            // For now, let's assume I'll add the API methods shortly.
             if (editingCategory) {
-                await restaurantAdmin.updateCategory(editingCategory.id, formData);
+                await restaurantAdmin.updateCategory(editingCategory.id, data);
             } else {
-                await restaurantAdmin.createCategory(formData);
+                await restaurantAdmin.createCategory(data);
             }
             setIsModalOpen(false);
             fetchCategories();
@@ -132,6 +156,7 @@ const Categories = () => {
                     <table className="w-full">
                         <thead className="bg-muted/50 border-b">
                             <tr>
+                                <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground w-16">Image</th>
                                 <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground">Name</th>
                                 <th className="text-left py-3 px-4 font-medium text-sm text-muted-foreground">Description</th>
                                 <th className="text-center py-3 px-4 font-medium text-sm text-muted-foreground">Sort Order</th>
@@ -149,6 +174,19 @@ const Categories = () => {
                             ) : (
                                 categories.map(cat => (
                                     <tr key={cat.id} className="hover:bg-muted/30 transition-colors">
+                                        <td className="py-3 px-4">
+                                            <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center overflow-hidden">
+                                                {cat.image_url ? (
+                                                    <img
+                                                        src={`${API_CONFIG.baseURL}${cat.image_url}`}
+                                                        alt={cat.name}
+                                                        className="w-full h-full object-cover"
+                                                    />
+                                                ) : (
+                                                    <Layers size={20} className="text-muted-foreground" />
+                                                )}
+                                            </div>
+                                        </td>
                                         <td className="py-3 px-4 font-medium">{cat.name}</td>
                                         <td className="py-3 px-4 text-sm text-muted-foreground max-w-xs truncate">{cat.description}</td>
                                         <td className="py-3 px-4 text-center">{cat.sort_order}</td>
@@ -235,6 +273,42 @@ const Categories = () => {
                                         className="rounded border-gray-300 text-primary focus:ring-primary h-4 w-4"
                                     />
                                     <label htmlFor="is_active" className="text-sm font-medium cursor-pointer">Active</label>
+                                </div>
+
+                                <div>
+                                    <label className="block text-sm font-medium mb-1">Category Image</label>
+                                    <div className="mt-1 flex items-center gap-4">
+                                        <div className="relative w-24 h-24 rounded-xl bg-muted flex items-center justify-center overflow-hidden border">
+                                            {imagePreview ? (
+                                                <>
+                                                    <img src={imagePreview} alt="Preview" className="w-full h-full object-cover" />
+                                                    <button
+                                                        type="button"
+                                                        onClick={removeImage}
+                                                        className="absolute top-1 right-1 p-1 bg-background/80 rounded-full shadow-sm hover:bg-background text-destructive"
+                                                    >
+                                                        <X size={14} />
+                                                    </button>
+                                                </>
+                                            ) : (
+                                                <ImageIcon className="text-muted-foreground" size={32} />
+                                            )}
+                                        </div>
+                                        <div className="flex-1">
+                                            <p className="text-xs text-muted-foreground mb-2">
+                                                JPG, PNG or WEBP. Max size 5MB.
+                                            </p>
+                                            <label className="cursor-pointer px-3 py-1.5 bg-background border rounded-lg hover:bg-muted transition-colors text-sm font-medium inline-block">
+                                                {imagePreview ? 'Change Image' : 'Select Image'}
+                                                <input
+                                                    type="file"
+                                                    className="hidden"
+                                                    accept="image/*"
+                                                    onChange={handleImageChange}
+                                                />
+                                            </label>
+                                        </div>
+                                    </div>
                                 </div>
                             </form>
                         </div>

@@ -5,7 +5,12 @@ const { logCreate, logUpdate, logDelete } = require('../services/auditService');
 // Create category
 exports.createCategory = async (req, res, next) => {
   try {
-    const { name, description, image_url, sort_order, is_active = true } = req.body;
+    const { name, description, sort_order, is_active = true } = req.body;
+    let { image_url } = req.body;
+
+    if (req.file) {
+      image_url = `/uploads/categories/${req.file.filename}`;
+    }
 
     if (!name) {
       return errorResponse(res, 'Category name is required', 400);
@@ -75,7 +80,13 @@ exports.updateCategory = async (req, res, next) => {
     }
 
     const oldValues = { ...category };
-    const updated = await FoodCategory.update(id, req.body);
+    const updateData = { ...req.body };
+
+    if (req.file) {
+      updateData.image_url = `/uploads/categories/${req.file.filename}`;
+    }
+
+    const updated = await FoodCategory.update(id, updateData);
 
     if (!updated) {
       return errorResponse(res, 'No fields to update', 400);

@@ -24,7 +24,7 @@ exports.createBanner = async (req, res, next) => {
     }
 
     // Super admin can create for any restaurant, restaurant admin only for their restaurant
-    const finalRestaurantId = req.user.role === 'super_admin' 
+    const finalRestaurantId = req.user.role === 'super_admin'
       ? (restaurant_id || null)
       : req.user.restaurant_id;
 
@@ -66,7 +66,7 @@ exports.getAllBanners = async (req, res, next) => {
     const { page = 1, limit = 20, restaurant_id } = getPaginationParams(req);
 
     // Super admin can see all, restaurant admin only their restaurant
-    const finalRestaurantId = req.user.role === 'super_admin' 
+    const finalRestaurantId = req.user.role === 'super_admin'
       ? (restaurant_id || null)
       : req.user.restaurant_id;
 

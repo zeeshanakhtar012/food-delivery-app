@@ -47,6 +47,16 @@ const RestaurantStaff = {
     return result.rows[0];
   },
 
+  // Find by email only (for global login)
+  findByEmail: async (email) => {
+    const result = await query(
+      'SELECT * FROM restaurant_staff WHERE email = $1 AND is_active = true',
+      [email]
+    );
+
+    return result.rows[0];
+  },
+
   // Get all staff for restaurant
   findByRestaurantId: async (restaurant_id, role = null) => {
     let sql = `

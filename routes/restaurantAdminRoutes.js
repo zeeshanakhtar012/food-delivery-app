@@ -118,6 +118,7 @@ router.put('/orders/:id/status', restaurantAdminController.updateOrderStatus);
 router.post('/tables', restaurantTableController.createTable);
 router.get('/tables', restaurantTableController.getTables);
 router.get('/tables/:id/order', restaurantTableController.getTableActiveOrder); // [NEW] Get active order
+router.put('/tables/:id/checkout', restaurantTableController.checkoutTable); // [NEW] Table checkout
 router.put('/tables/:id', restaurantTableController.updateTable);
 router.delete('/tables/:id', restaurantTableController.deleteTable);
 
@@ -126,6 +127,8 @@ router.delete('/tables/:id', restaurantTableController.deleteTable);
 // ---------------------------------------------------------------------
 router.post('/riders', restaurantAdminController.createRider);
 router.get('/riders', restaurantAdminController.getAllRiders);
+router.put('/riders/:id', restaurantAdminController.updateRider);
+router.delete('/riders/:id', restaurantAdminController.deleteRider);
 router.put('/riders/:id/block', restaurantAdminController.blockRider);
 router.put('/riders/:id/unblock', restaurantAdminController.unblockRider);
 router.get('/riders/performance', restaurantAdminController.getRiderPerformance);

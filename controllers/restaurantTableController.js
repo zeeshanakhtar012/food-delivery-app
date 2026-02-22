@@ -120,3 +120,41 @@ exports.getTableActiveOrder = async (req, res, next) => {
         next(error);
     }
 };
+
+exports.checkoutTable = async (req, res, next) => {
+    try {
+        const { id } = req.params; // table id
+        const restaurantId = req.user.restaurant_id;
+
+        // Verify table ownership
+        const table = await Table.findById(id);
+        if (!table || table.restaurant_id !== restaurantId) {
+            return errorResponse(res, 'Table not found', 404);
+        }
+
+        const activeOrder = await Order.findActiveByTableId(id);
+        if (!activeOrder) {
+            return errorResponse(res, 'No active order found for this table', 404);
+        }
+
+        // Change order status to completed
+        const updatedOrder = await Order.updateStatus(activeOrder.id, 'completed');
+
+        // Note: Order.updateStatus inherently sets the table back to available
+        // when status becomes 'completed', so we don't need to do it twice.
+
+        const io = req.app.get('io');
+        if (io) {
+            io.to(`restaurant:${restaurantId}`).emit('orderUpdated', updatedOrder);
+            io.to(`restaurant:${restaurantId}`).emit('tableStatusUpdate', {
+                table_id: id,
+                status: 'available'
+            });
+        }
+
+        return successResponse(res, updatedOrder, 'Table checked out successfully');
+
+    } catch (error) {
+        next(error);
+    }
+};

@@ -396,7 +396,7 @@ const POS = () => {
     const tableNumber = tables.find(t => t.id === lastOrder?.table_id)?.table_number;
 
     return (
-        <div className="flex h-screen overflow-hidden bg-gray-100 relative">
+        <div className="flex flex-col lg:flex-row h-screen overflow-hidden bg-gray-100 relative">
 
             {/* ── Order Complete Modal ── */}
             {showModal && lastOrder && (
@@ -416,17 +416,17 @@ const POS = () => {
             <div className="flex-1 flex flex-col h-full overflow-hidden">
 
                 {/* Top Bar */}
-                <div className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-sm z-20">
-                    <h1 className="text-xl font-bold flex items-center gap-2">
-                        <Monitor className="text-indigo-600" />
-                        POS Terminal
+                <div className="min-h-16 py-2 bg-white border-b flex flex-wrap items-center justify-between px-4 lg:px-6 shadow-sm z-20 gap-4">
+                    <h1 className="text-lg lg:text-xl font-bold flex items-center gap-2">
+                        <Monitor className="text-indigo-600 shrink-0" />
+                        <span className="truncate">POS Terminal</span>
                         {restaurant && (
-                            <span className="text-sm font-normal text-gray-500">| {restaurant.name}</span>
+                            <span className="text-xs font-normal text-gray-500 hidden sm:inline">| {restaurant.name}</span>
                         )}
                     </h1>
 
                     {/* Order Type Toggle */}
-                    <div className="flex bg-gray-100 p-1 rounded-lg">
+                    <div className="flex bg-gray-100 p-1 rounded-lg shrink-0">
                         <button
                             onClick={() => setOrderType('dine_in')}
                             className={clsx(

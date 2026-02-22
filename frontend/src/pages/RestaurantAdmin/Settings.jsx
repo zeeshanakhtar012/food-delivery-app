@@ -17,14 +17,21 @@ const Settings = () => {
     useEffect(() => {
         const fetchProfile = async () => {
             try {
-                const response = await restaurantAdmin.getProfile();
-                const data = response.data.data;
+                const [profileRes, restaurantRes] = await Promise.all([
+                    restaurantAdmin.getProfile(),
+                    restaurantAdmin.getRestaurant().catch(() => ({ data: { data: {} } })) // Fallback in case it fails
+                ]);
+
+                const profileData = profileRes.data.data;
+                const restaurantData = restaurantRes.data.data;
+
                 setFormData(prev => ({
                     ...prev,
-                    name: data.restaurant?.name || data.admin?.name || '',
-                    phone: data.restaurant?.phone || data.admin?.phone || '',
-                    address: data.restaurant?.address || '',
-                    email: data.admin?.email || ''
+                    name: restaurantData.name || profileData.restaurant?.name || profileData.admin?.name || '',
+                    phone: restaurantData.phone || profileData.restaurant?.phone || profileData.admin?.phone || '',
+                    address: restaurantData.address || profileData.restaurant?.address || '',
+                    email: profileData.email || profileData.admin?.email || '',
+                    restaurant_id: profileData.restaurant_id || profileData.admin?.restaurant_id || ''
                 }));
             } catch (error) {
                 console.error('Failed to fetch profile', error);
@@ -76,6 +83,27 @@ const Settings = () => {
                         Restaurant Details
                     </h2>
                     <p className="text-sm text-muted-foreground">Update your restaurant profile and contact information.</p>
+                </div>
+
+                {/* For testing only - show restaurant ID */}
+                <div className="px-6 py-4 bg-blue-50/50 border-b flex justify-between items-center text-sm">
+                    <div>
+                        <p className="font-semibold text-blue-900">Restaurant ID (Development Only)</p>
+                        <p className="text-blue-700 max-w-md truncate font-mono text-xs mt-1">
+                            {formData.restaurant_id || 'Not assigned'}
+                        </p>
+                    </div>
+                    {formData.restaurant_id && (
+                        <button
+                            onClick={() => {
+                                navigator.clipboard.writeText(formData.restaurant_id);
+                                alert('Restaurant ID copied to clipboard!');
+                            }}
+                            className="text-blue-600 hover:text-blue-800 text-xs font-bold uppercase tracking-wider bg-blue-100 hover:bg-blue-200 px-3 py-1.5 rounded transition-colors"
+                        >
+                            Copy ID
+                        </button>
+                    )}
                 </div>
 
                 <div className="p-6">
