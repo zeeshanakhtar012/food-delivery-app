@@ -26,21 +26,30 @@ const server = http.createServer(app);
 // CORS Configuration
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  'https://food-delivery-admin-ffwg.onrender.com'
+  'https://food-delivery-admin-ffwg.onrender.com',
+  'https://api-food-delivery-app.onrender.com'
 ].filter(Boolean);
 
 const checkCorsOrigin = function (origin, callback) {
   // Allow requests with no origin (like mobile apps or curl requests)
   if (!origin) return callback(null, true);
+
   // Allow local development ports seamlessly
-  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1') || origin.startsWith('http://192.168.')) {
     return callback(null, true);
   }
+
+  // Allow any Render subdomain for the project
+  if (origin.endsWith('.onrender.com')) {
+    return callback(null, true);
+  }
+
   if (allowedOrigins.includes(origin)) {
     return callback(null, true);
   }
+
   console.error('[CORS Rejected] Origin:', origin);
-  return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+  return callback(new Error(`CORS blocked: ${origin} is not allowed by policy.`), false);
 };
 
 // Socket.IO setup
