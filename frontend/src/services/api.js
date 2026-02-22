@@ -72,9 +72,17 @@ export const restaurantAdmin = {
     // Riders
     createRider: (data) => api.post('/api/admin/riders', data),
     getAllRiders: () => api.get('/api/admin/riders'),
+    updateRider: (id, data) => api.put(`/api/admin/riders/${id}`, data),
+    deleteRider: (id) => api.delete(`/api/admin/riders/${id}`),
     getRiderPerformance: (params) => api.get('/api/admin/riders/performance', { params }),
     blockRider: (id) => api.put(`/api/admin/riders/${id}/block`),
     unblockRider: (id) => api.put(`/api/admin/riders/${id}/unblock`),
+
+    // Staff
+    createStaff: (data) => api.post('/api/admin/staff', data),
+    getStaff: () => api.get('/api/admin/staff'),
+    updateStaff: (id, data) => api.put(`/api/admin/staff/${id}`, data),
+    deleteStaff: (id) => api.delete(`/api/admin/staff/${id}`),
 
     // Tables
     createTable: (data) => api.post('/api/admin/tables', data),
@@ -97,8 +105,8 @@ export const restaurantAdmin = {
 
     // Categories
     getCategories: () => api.get('/api/admin/categories'),
-    createCategory: (data) => api.post('/api/admin/categories', data),
-    updateCategory: (id, data) => api.put(`/api/admin/categories/${id}`, data),
+    createCategory: (data) => api.post('/api/admin/categories', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
+    updateCategory: (id, data) => api.put(`/api/admin/categories/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     deleteCategory: (id) => api.delete(`/api/admin/categories/${id}`),
 
     // Addons

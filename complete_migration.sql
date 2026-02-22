@@ -12,7 +12,12 @@ BEGIN
         CREATE TYPE admin_role AS ENUM ('super_admin', 'restaurant_admin');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
-        CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'completed', 'cancelled');
+        CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'ready', 'picked_up', 'delivered', 'completed', 'cancelled');
+    ELSE
+        -- Ensure 'ready' exists in the enum
+        IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'ready' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'order_status')) THEN
+            ALTER TYPE order_status ADD VALUE 'ready';
+        END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method') THEN
         CREATE TYPE payment_method AS ENUM ('cash', 'card', 'wallet', 'stripe', 'paypal');
@@ -248,7 +253,14 @@ CREATE TABLE IF NOT EXISTS order_items (
 
 -- Idempotent patches for existing databases
 ALTER TABLE order_items ADD COLUMN IF NOT EXISTS addons JSONB DEFAULT '[]'::jsonb;
--- Add 'completed' to order_status enum if it doesn't already exist
+ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_number VARCHAR(50) UNIQUE;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE admins ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE foods ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE food_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+-- Add 'completed' and 'ready' to order_status enum if they don't already exist
 DO $$ BEGIN
     IF NOT EXISTS (
         SELECT 1 FROM pg_enum
@@ -256,6 +268,13 @@ DO $$ BEGIN
         AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'order_status')
     ) THEN
         ALTER TYPE order_status ADD VALUE 'completed';
+    END IF;
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_enum
+        WHERE enumlabel = 'ready'
+        AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'order_status')
+    ) THEN
+        ALTER TYPE order_status ADD VALUE 'ready';
     END IF;
 END$$;
 

@@ -234,10 +234,17 @@ exports.getHomepage = async (req, res) => {
 // Get foods (filtered by restaurant_id from config or user's restaurant_id)
 exports.getFoods = async (req, res) => {
   try {
+    // [DEBUG] Log request data to debug undefined restaurant_id
+    console.log('[DEBUG] getFoods - req.user:', req.user);
+    console.log('[DEBUG] getFoods - req.restaurant_id:', req.restaurant_id);
+    console.log('[DEBUG] getFoods - req.body:', req.body);
+
     // Use restaurant_id from user or request (if using config-based restaurant_id)
-    const restaurant_id = req.body.restaurant_id || req.user.restaurant_id;
+    // Preference: 1. req.restaurant_id (set by middleware), 2. req.user.restaurant_id, 3. req.body.restaurant_id
+    const restaurant_id = req.restaurant_id || req.user?.restaurant_id || req.body?.restaurant_id;
 
     if (!restaurant_id) {
+      console.error('[ERROR] getFoods - No restaurant_id found in request');
       return res.status(400).json({ message: 'restaurant_id is required' });
     }
 

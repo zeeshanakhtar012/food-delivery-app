@@ -102,6 +102,16 @@ exports.updateStaff = async (req, res, next) => {
       return errorResponse(res, 'No fields to update', 400);
     }
 
+    // Check if is_active changed
+    if (req.body.is_active !== undefined && oldValues.is_active !== req.body.is_active) {
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`staff:${id}`).emit('staffStatusUpdate', {
+          is_active: req.body.is_active
+        });
+      }
+    }
+
     await logUpdate(req.user.id, 'restaurant_admin', 'RESTAURANT_STAFF', id, oldValues, updated, req);
 
     return successResponse(res, updated, 'Staff member updated successfully');

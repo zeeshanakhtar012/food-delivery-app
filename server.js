@@ -18,19 +18,35 @@ const Admin = require('./models/PostgreSQL/Admin');
 const User = require('./models/PostgreSQL/User');
 const Rider = require('./models/PostgreSQL/Rider');
 const Restaurant = require('./models/PostgreSQL/Restaurant');
+const RestaurantStaff = require('./models/PostgreSQL/RestaurantStaff');
 
 const app = express();
 const server = http.createServer(app);
 
+// CORS Configuration
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'https://food-delivery-admin-ffwg.onrender.com'
+].filter(Boolean);
+
+const checkCorsOrigin = function (origin, callback) {
+  // Allow requests with no origin (like mobile apps or curl requests)
+  if (!origin) return callback(null, true);
+  // Allow local development ports seamlessly
+  if (origin.startsWith('http://localhost') || origin.startsWith('http://127.0.0.1')) {
+    return callback(null, true);
+  }
+  if (allowedOrigins.includes(origin)) {
+    return callback(null, true);
+  }
+  console.error('[CORS Rejected] Origin:', origin);
+  return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
+};
+
 // Socket.IO setup
 const io = new Server(server, {
   cors: {
-    origin: [
-      process.env.FRONTEND_URL,
-      'http://localhost:5173',
-      'http://localhost:3000',
-      'https://food-delivery-admin-ffwg.onrender.com'
-    ].filter(Boolean),
+    origin: checkCorsOrigin,
     methods: ['GET', 'POST'],
     credentials: true
   }
@@ -42,23 +58,9 @@ app.set('io', io);
 const PORT = process.env.PORT || 5001;
 
 // Middleware
-const allowedOrigins = [
-  process.env.FRONTEND_URL,
-  'http://localhost:5173',
-  'http://localhost:3000',
-  'https://food-delivery-admin-ffwg.onrender.com'
-].filter(Boolean);
-
 app.use(cors({
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
-    if (!origin) return callback(null, true);
-    if (allowedOrigins.indexOf(origin) === -1) {
-      return callback(new Error('The CORS policy for this site does not allow access from the specified Origin.'), false);
-    }
-    return callback(null, true);
-  },
-  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
+  origin: checkCorsOrigin,
+  methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 app.use(express.json());
@@ -126,6 +128,20 @@ io.use(async (socket, next) => {
         role: decoded.role,
         restaurant_id: decoded.restaurant_id
       };
+    } else if (decoded.role === 'staff') {
+      const staff = await RestaurantStaff.findById(decoded.id);
+      if (!staff || !staff.is_active) {
+        // Can still connect, but maybe they shouldn't? We let them connect so they can receive 'unpause' event 
+        // if we decide to implement it, however typically paused users are kicked out.
+        // Wait, if they are paused, they shouldn't authenticate to sockets, but we need them to get the event.
+        // Let's allow connection. The app uses REST to check status initially, and socket for real-time updates.
+        if (!staff) return next(new Error('Staff not found'));
+      }
+      userDetails = {
+        id: decoded.id,
+        role: decoded.role,
+        restaurant_id: decoded.restaurant_id
+      };
     }
 
     socket.user = userDetails;
@@ -146,6 +162,11 @@ io.on('connection', (socket) => {
   // Join role-specific rooms
   if (socket.user.role === 'super_admin' || socket.user.role === 'restaurant_admin') {
     socket.join('admin');
+    if (socket.user.restaurant_id) {
+      socket.join(`restaurant:${socket.user.restaurant_id}`);
+    }
+  } else if (socket.user.role === 'staff') {
+    socket.join(`staff:${socket.user.id}`);
     if (socket.user.restaurant_id) {
       socket.join(`restaurant:${socket.user.restaurant_id}`);
     }
@@ -247,6 +268,9 @@ app.use('/api/banners', require('./routes/bannerRoutes'));
 app.use('/api/faqs', require('./routes/faqRoutes'));
 app.use('/api/settings', require('./routes/appSettingRoutes'));
 app.use('/api/audit-logs', require('./routes/auditLogRoutes'));
+
+// Staff/Waiter API routes
+app.use('/api/staff', require('./routes/staffApiRoutes'));
 
 // Default route
 app.get('/', (req, res) => {

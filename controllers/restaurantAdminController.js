@@ -503,6 +503,66 @@ exports.getAllRiders = async (req, res, next) => {
   }
 };
 
+exports.updateRider = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+
+    if (!restaurantId) {
+      return errorResponse(res, 'Authentication error: Missing restaurant info', 401);
+    }
+
+    const rider = await Rider.findById(id);
+    if (!rider || rider.restaurant_id !== restaurantId) {
+      return errorResponse(res, 'Rider not found', 404);
+    }
+
+    // Only update allowed fields
+    const updates = {};
+    if (req.body.name) updates.name = req.body.name;
+    if (req.body.phone) updates.phone = req.body.phone;
+    if (req.body.email) updates.email = req.body.email;
+    if (req.body.vehicle_type) updates.vehicle_number = req.body.vehicle_type;
+
+    // Hash new password if provided
+    if (req.body.password) {
+      updates.password = await bcrypt.hash(req.body.password, 10);
+    }
+
+    const updated = await Rider.update(id, updates);
+    if (!updated) return errorResponse(res, 'No changes', 400);
+
+    await logUpdate(req.user.id, 'restaurant_admin', 'RIDER', id, rider, updated, req);
+
+    return successResponse(res, updated, 'Rider updated successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteRider = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+
+    if (!restaurantId) {
+      return errorResponse(res, 'Authentication error: Missing restaurant info', 401);
+    }
+
+    const rider = await Rider.findById(id);
+    if (!rider || rider.restaurant_id !== restaurantId) {
+      return errorResponse(res, 'Rider not found', 404);
+    }
+
+    await Rider.delete(id);
+    await logDelete(req.user.id, 'restaurant_admin', 'RIDER', id, rider, req);
+
+    return successResponse(res, null, 'Rider deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
 // ============== PROFILE ==============
 // controllers/restaurantAdminController.js
 exports.getProfile = async (req, res, next) => {
@@ -548,19 +608,42 @@ exports.getRestaurant = async (req, res, next) => {
 exports.updateProfile = async (req, res, next) => {
   try {
     const userId = req.user?.id;
+    const restaurantId = req.user?.restaurant_id;
     if (!userId) {
       return errorResponse(res, 'Authentication error: Missing user info', 401);
     }
 
-    const updates = req.body;
+    const { name, phone, address, new_password } = req.body;
+
+    // Update Admin Profile (name and password)
+    const adminUpdates = {};
+    if (name) adminUpdates.name = name;
+    if (new_password) adminUpdates.password = new_password;
+
     const admin = await Admin.findById(userId);
     if (!admin) return errorResponse(res, 'Profile not found', 404);
 
-    const updated = await Admin.update(userId, updates); // You need this method!
-    if (!updated) return errorResponse(res, 'No changes', 400);
+    const updatedAdmin = await Admin.update(userId, adminUpdates);
 
-    await logUpdate(userId, 'restaurant_admin', 'PROFILE', userId, admin, updated, req);
-    return successResponse(res, updated, 'Profile updated');
+    // Update Restaurant Details if admin belongs to one
+    let updatedRestaurant = null;
+    if (restaurantId) {
+      const restaurantUpdates = {};
+      if (name) restaurantUpdates.name = name;
+      if (phone) restaurantUpdates.phone = phone;
+      if (address) restaurantUpdates.address = address;
+
+      if (Object.keys(restaurantUpdates).length > 0) {
+        updatedRestaurant = await Restaurant.update(restaurantId, restaurantUpdates);
+      }
+    }
+
+    await logUpdate(userId, 'restaurant_admin', 'PROFILE', userId, admin, updatedAdmin, req);
+
+    return successResponse(res, {
+      admin: updatedAdmin,
+      restaurant: updatedRestaurant
+    }, 'Profile and restaurant details updated successfully');
   } catch (error) {
     next(error);
   }

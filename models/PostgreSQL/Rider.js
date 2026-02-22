@@ -6,14 +6,14 @@ const Rider = {
   // Create rider
   create: async (riderData) => {
     const { name, email, password, phone, vehicle_number, vehicle_type, restaurant_id } = riderData;
-    
+
     // If password not provided, generate a default password (rider can change later)
     const defaultPassword = password || 'rider123'; // You may want to make this configurable
     const hashedPassword = await bcrypt.hash(defaultPassword, 10);
-    
+
     // Support both vehicle_number and vehicle_type (map vehicle_type to vehicle_number)
     const vehicleNumber = vehicle_number || vehicle_type || null;
-    
+
     const result = await query(
       `INSERT INTO riders (id, name, email, password, phone, vehicle_number, restaurant_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -36,7 +36,8 @@ const Rider = {
   findById: async (id) => {
     const result = await query(
       `SELECT id, name, email, phone, vehicle_number, restaurant_id, 
-              current_lat, current_lng, is_available, created_at 
+              current_lat, current_lng, is_available, status, 
+              wallet_balance, total_earnings, created_at 
        FROM riders WHERE id = $1`,
       [id]
     );
@@ -47,7 +48,8 @@ const Rider = {
   findByRestaurantId: async (restaurant_id) => {
     const result = await query(
       `SELECT id, name, email, phone, vehicle_number, restaurant_id, 
-              current_lat, current_lng, is_available, created_at 
+              current_lat, current_lng, is_available, status, 
+              wallet_balance, total_earnings, created_at 
        FROM riders WHERE restaurant_id = $1 ORDER BY created_at DESC`,
       [restaurant_id]
     );
@@ -77,6 +79,34 @@ const Rider = {
   // Verify password
   comparePassword: async (candidatePassword, hashedPassword) => {
     return await bcrypt.compare(candidatePassword, hashedPassword);
+  },
+  // Update rider details
+  update: async (id, data) => {
+    const keys = Object.keys(data);
+    if (keys.length === 0) return null;
+
+    let updateValues = [];
+    let setQueries = keys.map((key, index) => {
+      updateValues.push(data[key]);
+      return `${key} = $${index + 1}`;
+    });
+
+    updateValues.push(id);
+    const queryStr = `
+      UPDATE riders 
+      SET ${setQueries.join(', ')} 
+      WHERE id = $${keys.length + 1} 
+      RETURNING id, name, email, phone, vehicle_number, restaurant_id, is_available, created_at
+    `;
+
+    const result = await query(queryStr, updateValues);
+    return result.rows[0];
+  },
+
+  // Delete rider
+  delete: async (id) => {
+    const result = await query('DELETE FROM riders WHERE id = $1 RETURNING id', [id]);
+    return result.rows[0];
   },
 };
 
