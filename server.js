@@ -31,24 +31,16 @@ const allowedOrigins = [
 ].filter(Boolean);
 
 const checkCorsOrigin = function (origin, callback) {
-  // 1. Allow requests with no origin (like mobile apps or curl)
-  if (!origin) return callback(null, true);
-
-  // 2. Define allowance criteria
-  const isLocal = origin.startsWith('http://localhost') ||
+  // Allow all origins ending in .onrender.com or starting with localhost
+  if (!origin ||
+    origin.startsWith('http://localhost') ||
     origin.startsWith('http://127.0.0.1') ||
-    origin.startsWith('http://192.168.');
-
-  const isRender = origin.endsWith('.onrender.com');
-  const isExplicitlyAllowed = allowedOrigins.includes(origin);
-
-  // 3. Final decision
-  if (isLocal || isRender || isExplicitlyAllowed) {
+    origin.includes('.onrender.com') ||
+    allowedOrigins.includes(origin)) {
     return callback(null, true);
   }
 
-  // 4. Reject if not allowed
-  console.error('[CORS Rejected] Origin:', origin);
+  console.log('[CORS Rejected] Origin:', origin);
   return callback(null, false);
 };
 
