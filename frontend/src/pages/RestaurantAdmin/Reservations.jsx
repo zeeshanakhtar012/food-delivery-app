@@ -8,6 +8,7 @@ const Reservations = () => {
     const [reservations, setReservations] = useState([]);
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
+    const [searchTerm, setSearchTerm] = useState('');
     const [formData, setFormData] = useState({
         customer_name: '',
         customer_phone: '',
@@ -25,14 +26,21 @@ const Reservations = () => {
         try {
             setLoading(true);
             const res = await restaurantAdmin.getReservations();
-            setReservations(res.data);
+            // The API response is { success: true, message: '...', data: [...] }
+            setReservations(Array.isArray(res.data.data) ? res.data.data : []);
         } catch (error) {
             console.error('Error fetching reservations:', error);
             toast.error('Failed to load reservations');
+            setReservations([]);
         } finally {
             setLoading(false);
         }
     };
+
+    const filteredReservations = reservations.filter(res =>
+        res.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        res.customer_phone?.includes(searchTerm)
+    );
 
     const handleSubmit = async (e) => {
         e.preventDefault();
@@ -71,16 +79,31 @@ const Reservations = () => {
 
     return (
         <div className="p-6">
-            <div className="flex justify-between items-center mb-6">
-                <h1 className="text-2xl font-bold flex items-center gap-2">
-                    <Calendar className="text-indigo-600" /> Reservations
-                </h1>
-                <button
-                    onClick={() => setShowModal(true)}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center gap-2 hover:bg-indigo-700"
-                >
-                    <Plus className="w-4 h-4" /> New Reservation
-                </button>
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
+                <div>
+                    <h1 className="text-2xl font-bold flex items-center gap-2">
+                        <Calendar className="text-indigo-600" /> Reservations
+                    </h1>
+                    <p className="text-gray-500 text-sm mt-1">Manage table bookings and customer visits</p>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+                    <div className="relative flex-1">
+                        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 w-4 h-4" />
+                        <input
+                            type="text"
+                            placeholder="Search reservations..."
+                            className="pl-10 pr-4 py-2 border rounded-lg w-full focus:ring-2 focus:ring-indigo-100 outline-none"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                    </div>
+                    <button
+                        onClick={() => setShowModal(true)}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg flex items-center justify-center gap-2 hover:bg-indigo-700 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" /> New Reservation
+                    </button>
+                </div>
             </div>
 
             {loading ? (
@@ -99,12 +122,34 @@ const Reservations = () => {
                             </tr>
                         </thead>
                         <tbody className="divide-y">
-                            {reservations.length === 0 ? (
+                            {filteredReservations.length === 0 ? (
                                 <tr>
-                                    <td colSpan="6" className="p-8 text-center text-gray-500">No reservations found</td>
+                                    <td colSpan="6" className="p-12 text-center text-gray-500">
+                                        <div className="flex flex-col items-center justify-center space-y-3">
+                                            <div className="p-3 bg-gray-50 rounded-full">
+                                                <Calendar className="w-8 h-8 text-gray-400" />
+                                            </div>
+                                            <div>
+                                                <p className="text-lg font-semibold text-gray-900">
+                                                    {searchTerm ? 'No matching reservations' : 'No reservations found'}
+                                                </p>
+                                                <p className="text-sm">
+                                                    {searchTerm ? 'Try adjusting your search terms' : 'New reservations will appear here once they are created.'}
+                                                </p>
+                                            </div>
+                                            {!searchTerm && (
+                                                <button
+                                                    onClick={() => setShowModal(true)}
+                                                    className="mt-2 text-indigo-600 font-medium hover:text-indigo-700 text-sm"
+                                                >
+                                                    Create your first reservation
+                                                </button>
+                                            )}
+                                        </div>
+                                    </td>
                                 </tr>
                             ) : (
-                                reservations.map(res => (
+                                filteredReservations.map(res => (
                                     <tr key={res.id} className="hover:bg-gray-50">
                                         <td className="p-4">
                                             <div className="font-medium text-gray-900">{res.customer_name}</div>
