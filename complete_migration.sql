@@ -118,6 +118,9 @@ CREATE TABLE IF NOT EXISTS riders (
     total_deliveries INTEGER DEFAULT 0,
     total_earnings DECIMAL(10,2) DEFAULT 0,
     wallet_balance DECIMAL(10,2) DEFAULT 0,
+    is_blocked BOOLEAN DEFAULT FALSE,
+    blocked_at TIMESTAMP,
+    blocked_reason TEXT,
     is_approved BOOLEAN DEFAULT FALSE,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(email, restaurant_id)
@@ -260,6 +263,9 @@ ALTER TABLE restaurants ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CU
 ALTER TABLE admins ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE foods ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE food_categories ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT FALSE;
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMP;
+ALTER TABLE riders ADD COLUMN IF NOT EXISTS blocked_reason TEXT;
 -- Add 'completed' and 'ready' to order_status enum if they don't already exist
 DO $$ BEGIN
     IF NOT EXISTS (

@@ -388,7 +388,7 @@ const Orders = () => {
     };
 
     /* ── Filtering ── */
-    const STATUS_FILTERS = ['all', 'pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'cancelled'];
+    const STATUS_FILTERS = ['all', 'pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'completed', 'cancelled'];
 
     const filteredOrders = orders.filter(o => {
         const matchesFilter = filter === 'all' || o.status === filter;
