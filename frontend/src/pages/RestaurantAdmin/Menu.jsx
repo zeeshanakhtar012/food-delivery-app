@@ -210,7 +210,7 @@ const Menu = () => {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-background rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
+                    <div className="bg-white text-black rounded-xl shadow-xl w-full max-w-lg overflow-hidden flex flex-col max-h-[90vh]">
                         <div className="p-6 border-b">
                             <h2 className="text-xl font-bold">{editingFood ? 'Edit Item' : 'Add New Item'}</h2>
                         </div>
@@ -222,7 +222,7 @@ const Menu = () => {
                                         <input
                                             name="name" required
                                             value={formData.name} onChange={handleInputChange}
-                                            className="w-full px-3 py-2 border rounded-lg bg-background"
+                                            className="w-full px-3 py-2 border rounded-lg bg-white"
                                         />
                                     </div>
                                     <div className="w-1/3">
@@ -230,7 +230,7 @@ const Menu = () => {
                                         <input
                                             name="price" type="number" step="0.01" required
                                             value={formData.price} onChange={handleInputChange}
-                                            className="w-full px-3 py-2 border rounded-lg bg-background"
+                                            className="w-full px-3 py-2 border rounded-lg bg-white"
                                         />
                                     </div>
                                 </div>
@@ -240,7 +240,7 @@ const Menu = () => {
                                     <textarea
                                         name="description"
                                         value={formData.description} onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border rounded-lg bg-background min-h-[80px]"
+                                        className="w-full px-3 py-2 border rounded-lg bg-white min-h-[80px]"
                                     />
                                 </div>
 
@@ -250,7 +250,7 @@ const Menu = () => {
                                         <input
                                             name="preparation_time" type="number" required
                                             value={formData.preparation_time} onChange={handleInputChange}
-                                            className="w-full px-3 py-2 border rounded-lg bg-background"
+                                            className="w-full px-3 py-2 border rounded-lg bg-white"
                                         />
                                     </div>
                                     <div className="flex-1">
@@ -260,7 +260,7 @@ const Menu = () => {
                                             required
                                             value={formData.category_id}
                                             onChange={handleInputChange}
-                                            className="w-full px-3 py-2 border rounded-lg bg-background"
+                                            className="w-full px-3 py-2 border rounded-lg bg-white"
                                         >
                                             <option value="" disabled>Select Category</option>
                                             {categories.map(cat => (
@@ -281,7 +281,7 @@ const Menu = () => {
                                             disabled={formData.is_unlimited}
                                             value={formData.stock_quantity}
                                             onChange={handleInputChange}
-                                            className="w-full px-3 py-2 border rounded-lg bg-background disabled:opacity-50"
+                                            className="w-full px-3 py-2 border rounded-lg bg-white disabled:opacity-50"
                                         />
                                     </div>
                                     <div className="flex items-center gap-2 pb-3">

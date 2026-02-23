@@ -71,15 +71,19 @@ const FoodCategory = {
   },
 
   // Delete category
-  delete: async (id) => {
+  delete: async (id, force = false) => {
     // Check if category has foods
-    const foodsCheck = await query(
-      'SELECT COUNT(*) as count FROM foods WHERE category_id = $1',
-      [id]
-    );
+    if (force) {
+      await query('DELETE FROM foods WHERE category_id = $1', [id]);
+    } else {
+      const foodsCheck = await query(
+        'SELECT COUNT(*) as count FROM foods WHERE category_id = $1',
+        [id]
+      );
 
-    if (parseInt(foodsCheck.rows[0].count) > 0) {
-      throw new Error('Cannot delete category with existing foods');
+      if (parseInt(foodsCheck.rows[0].count) > 0) {
+        throw new Error('Cannot delete category with existing foods');
+      }
     }
 
     const result = await query('DELETE FROM food_categories WHERE id = $1 RETURNING *', [id]);

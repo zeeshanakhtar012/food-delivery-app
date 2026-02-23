@@ -107,7 +107,7 @@ export const restaurantAdmin = {
     getCategories: () => api.get('/api/admin/categories'),
     createCategory: (data) => api.post('/api/admin/categories', data, { headers: { 'Content-Type': 'multipart/form-data' } }),
     updateCategory: (id, data) => api.put(`/api/admin/categories/${id}`, data, { headers: { 'Content-Type': 'multipart/form-data' } }),
-    deleteCategory: (id) => api.delete(`/api/admin/categories/${id}`),
+    deleteCategory: (id, force = false) => api.delete(`/api/admin/categories/${id}${force ? '?force=true' : ''}`),
 
     // Addons
     createAddon: (data) => api.post('/api/admin/addons', data),

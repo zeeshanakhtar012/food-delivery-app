@@ -116,19 +116,26 @@ const Categories = () => {
         }
     };
 
-    const handleDelete = async (id) => {
-        if (!window.confirm('Are you sure you want to delete this category?')) return;
+    const handleDelete = async (id, force = false) => {
+        if (!force && !window.confirm('Are you sure you want to delete this category?')) return;
         try {
-            await restaurantAdmin.deleteCategory(id);
-            // Optimistic update
-            setCategories(categories.filter(c => c.id !== id));
+            await restaurantAdmin.deleteCategory(id, force);
+            fetchCategories(); // Fetch to ensure state is synchronized if foods were deleted
         } catch (error) {
             console.error('Failed to delete category', error);
             const errorMessage = error.response?.data?.message ||
                 error.response?.data?.error?.message ||
                 error.message ||
                 'Unknown error';
-            alert('Failed to delete category. ' + errorMessage);
+
+            if (errorMessage.includes('Cannot delete category with existing foods')) {
+                if (window.confirm('This category has existing foods. Deleting it will also delete all associated foods. Are you sure you want to proceed?')) {
+                    handleDelete(id, true);
+                    return;
+                }
+            } else {
+                alert('Failed to delete category. ' + errorMessage);
+            }
         }
     };
 
@@ -228,7 +235,7 @@ const Categories = () => {
             {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-background rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
+                    <div className="bg-white text-black rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">
                         <div className="p-6 border-b">
                             <h2 className="text-xl font-bold flex items-center gap-2">
                                 <Layers className="h-5 w-5" />
@@ -242,7 +249,7 @@ const Categories = () => {
                                     <input
                                         name="name" required
                                         value={formData.name} onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border rounded-lg bg-background"
+                                        className="w-full px-3 py-2 border rounded-lg bg-white"
                                         placeholder="e.g. Appetizers"
                                     />
                                 </div>
@@ -252,7 +259,7 @@ const Categories = () => {
                                     <textarea
                                         name="description"
                                         value={formData.description} onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border rounded-lg bg-background min-h-[80px]"
+                                        className="w-full px-3 py-2 border rounded-lg bg-white min-h-[80px]"
                                         placeholder="Optional description..."
                                     />
                                 </div>
@@ -263,7 +270,7 @@ const Categories = () => {
                                         <input
                                             name="sort_order" type="number"
                                             value={formData.sort_order} onChange={handleInputChange}
-                                            className="w-full px-3 py-2 border rounded-lg bg-background"
+                                            className="w-full px-3 py-2 border rounded-lg bg-white"
                                         />
                                     </div>
                                 </div>

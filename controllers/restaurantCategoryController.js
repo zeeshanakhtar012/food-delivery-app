@@ -104,6 +104,7 @@ exports.updateCategory = async (req, res, next) => {
 exports.deleteCategory = async (req, res, next) => {
   try {
     const { id } = req.params;
+    const force = req.query.force === 'true';
     const category = await FoodCategory.findById(id);
 
     if (!category) {
@@ -115,7 +116,7 @@ exports.deleteCategory = async (req, res, next) => {
     }
 
     try {
-      await FoodCategory.delete(id);
+      await FoodCategory.delete(id, force);
     } catch (dbError) {
       if (dbError.message === 'Cannot delete category with existing foods') {
         return errorResponse(res, dbError.message, 400);
