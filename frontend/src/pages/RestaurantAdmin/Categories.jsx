@@ -120,11 +120,15 @@ const Categories = () => {
         if (!window.confirm('Are you sure you want to delete this category?')) return;
         try {
             await restaurantAdmin.deleteCategory(id);
-            // Optimistic update or refetch
+            // Optimistic update
             setCategories(categories.filter(c => c.id !== id));
         } catch (error) {
             console.error('Failed to delete category', error);
-            alert('Failed to delete category. ' + (error.response?.data?.message || ''));
+            const errorMessage = error.response?.data?.message ||
+                error.response?.data?.error?.message ||
+                error.message ||
+                'Unknown error';
+            alert('Failed to delete category. ' + errorMessage);
         }
     };
 

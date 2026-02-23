@@ -114,7 +114,15 @@ exports.deleteCategory = async (req, res, next) => {
       return errorResponse(res, 'Access denied', 403);
     }
 
-    await FoodCategory.delete(id);
+    try {
+      await FoodCategory.delete(id);
+    } catch (dbError) {
+      if (dbError.message === 'Cannot delete category with existing foods') {
+        return errorResponse(res, dbError.message, 400);
+      }
+      throw dbError;
+    }
+
     await logDelete(req.user.id, 'restaurant_admin', 'FOOD_CATEGORY', id, category, req);
 
     return successResponse(res, null, 'Category deleted successfully');
