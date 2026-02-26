@@ -856,7 +856,7 @@ exports.getRiderPerformance = async (req, res, next) => {
       SELECT 
         r.id, r.name, r.phone,
         COUNT(o.id)::int as total_deliveries,
-        ROUND(AVG(EXTRACT(EPOCH FROM (o.delivered_at - o.created_at))/60)) as avg_delivery_time,
+        ROUND(AVG(EXTRACT(EPOCH FROM (o.updated_at - o.created_at))/60)) as avg_delivery_time,
         r.rating as avg_rating
       FROM riders r
       LEFT JOIN orders o ON r.id = o.rider_id AND o.status = 'delivered'

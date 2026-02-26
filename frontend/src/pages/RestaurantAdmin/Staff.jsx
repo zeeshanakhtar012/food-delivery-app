@@ -8,6 +8,7 @@ import {
     BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer
 } from 'recharts';
 import clsx from 'clsx';
+import { useSocket } from '../../context/SocketContext'; // Assuming socket context exists
 
 const Staff = () => {
     const [activeTab, setActiveTab] = useState('staff'); // 'staff', 'riders', 'performance'
@@ -32,7 +33,32 @@ const Staff = () => {
     const [performanceData, setPerformanceData] = useState([]);
     const [performanceLoading, setPerformanceLoading] = useState(false);
 
+    // Staff Requests State
+    const [staffRequests, setStaffRequests] = useState([]);
+
+    const socket = useSocket();
+
+    useEffect(() => {
+        if (!socket) return;
+
+        socket.on('staffLoginRequest', (requestData) => {
+            setStaffRequests(prev => {
+                // Check if request already exists for this staff
+                const exists = prev.find(req => req.staff_id === requestData.staff_id);
+                if (exists) return prev;
+                return [requestData, ...prev];
+            });
+            // Show alert or toast here if needed
+            alert(`New login request from ${requestData.name}`);
+        });
+
+        return () => {
+            socket.off('staffLoginRequest');
+        };
+    }, [socket]);
+
     const fetchRiders = async () => {
+        setLoading(true);
         try {
             const response = await restaurantAdmin.getAllRiders();
             setRiders(response.data.data || []);
@@ -44,6 +70,7 @@ const Staff = () => {
     };
 
     const fetchStaff = async () => {
+        setLoading(true);
         try {
             const response = await restaurantAdmin.getStaff();
             setStaffList(response.data.data || []);
@@ -95,14 +122,13 @@ const Staff = () => {
                     name: formData.name,
                     phone: formData.phone,
                     email: formData.email,
-                    role: formData.vehicle_type, // repurposing vehicle_type state for role
                     password: formData.password
                 });
                 setCreatedRider(response.data.data);
                 fetchStaff();
             }
 
-            setFormData({ name: '', phone: '', email: '', vehicle_type: activeTab === 'riders' ? 'bike' : 'cashier', password: '' });
+            setFormData({ name: '', phone: '', email: '', vehicle_type: 'bike', password: '' });
             setIsModalOpen(false); // Close form modal
         } catch (error) {
             console.error(error);
@@ -185,6 +211,33 @@ const Staff = () => {
         }
     };
 
+    const handleDeleteStaff = async (staffId) => {
+        if (!window.confirm('Are you sure you want to delete this staff member? This action cannot be undone.')) return;
+        try {
+            await restaurantAdmin.deleteStaff(staffId);
+            fetchStaff();
+        } catch (error) {
+            console.error('Error deleting staff:', error);
+            alert('Failed to delete staff');
+        }
+    };
+
+    const handleApproveStaff = async (staffId) => {
+        try {
+            await restaurantAdmin.updateStaff(staffId, { is_active: true });
+            setStaffRequests(prev => prev.filter(req => req.staff_id !== staffId));
+            fetchStaff();
+            alert('Staff login approved successfully.');
+        } catch (error) {
+            console.error('Error approving staff:', error);
+            alert('Failed to approve staff login');
+        }
+    };
+
+    const handleRejectStaff = (staffId) => {
+        setStaffRequests(prev => prev.filter(req => req.staff_id !== staffId));
+    };
+
     const filteredRiders = riders.filter(r =>
         r.name.toLowerCase().includes(search.toLowerCase()) ||
         r.phone.includes(search)
@@ -205,7 +258,7 @@ const Staff = () => {
                 {!createdRider && (
                     <button
                         onClick={() => {
-                            setFormData({ name: '', phone: '', email: '', vehicle_type: activeTab === 'riders' ? 'bike' : 'cashier', password: '' });
+                            setFormData({ name: '', phone: '', email: '', vehicle_type: 'bike', password: '' });
                             setIsModalOpen(true);
                         }}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
@@ -253,6 +306,40 @@ const Staff = () => {
                 </button>
             </div>
 
+            {/* Login Requests Section */}
+            {activeTab === 'staff' && staffRequests.length > 0 && (
+                <div className="mb-8">
+                    <h3 className="text-lg font-bold text-orange-600 mb-4 flex items-center gap-2">
+                        <Users className="h-5 w-5" /> Pending Login Requests
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {staffRequests.map(request => (
+                            <div key={request.staff_id} className="bg-orange-50 rounded-xl border border-orange-200 shadow-sm p-5 flex flex-col gap-3">
+                                <div>
+                                    <h4 className="font-bold text-lg text-orange-900">{request.name}</h4>
+                                    <p className="text-sm text-orange-700">{request.email}</p>
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 mt-1 block">{request.role}</span>
+                                </div>
+                                <div className="mt-2 pt-3 border-t border-orange-200 flex gap-2">
+                                    <button
+                                        onClick={() => handleApproveStaff(request.staff_id)}
+                                        className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors"
+                                    >
+                                        Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleRejectStaff(request.staff_id)}
+                                        className="flex-1 px-3 py-2 bg-white text-orange-700 border border-orange-300 rounded text-sm font-medium hover:bg-orange-100 transition-colors"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
             {activeTab === 'riders' || activeTab === 'staff' ? (
                 <>
                     <div className="relative max-w-md">
@@ -270,7 +357,7 @@ const Staff = () => {
                         <div className="flex justify-center p-12">
                             <Loader2 className="h-8 w-8 animate-spin text-primary" />
                         </div>
-                    ) : filteredRiders.length === 0 ? (
+                    ) : (activeTab === 'riders' ? filteredRiders.length === 0 : filteredStaff.length === 0) ? (
                         <div className="text-center py-12 bg-card rounded-xl border border-dashed">
                             <Users className="mx-auto h-12 w-12 text-muted-foreground opacity-50 mb-3" />
                             <h3 className="text-lg font-medium">No {activeTab} found</h3>
@@ -350,14 +437,22 @@ const Staff = () => {
 
                                     <div className="pt-2 border-t flex justify-between items-center text-sm font-medium mt-auto">
                                         <span className={clsx(staff.is_active ? "text-green-600" : "text-red-500")}>
-                                            {staff.is_active ? '● Active' : '○ Paused'}
+                                            {staff.is_active ? '● Active' : '○ Frozen'}
                                         </span>
-                                        <button
-                                            onClick={() => toggleStaffStatus(staff.id, staff.is_active)}
-                                            className={clsx("px-3 py-1 rounded text-xs", staff.is_active ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100")}
-                                        >
-                                            {staff.is_active ? 'Pause Access' : 'Resume Access'}
-                                        </button>
+                                        <div className="flex gap-2">
+                                            <button
+                                                onClick={() => toggleStaffStatus(staff.id, staff.is_active)}
+                                                className={clsx("px-3 py-1 rounded text-xs", staff.is_active ? "bg-red-50 text-red-600 hover:bg-red-100" : "bg-green-50 text-green-600 hover:bg-green-100")}
+                                            >
+                                                {staff.is_active ? 'Freeze' : 'Unfreeze'}
+                                            </button>
+                                            <button
+                                                onClick={() => handleDeleteStaff(staff.id)}
+                                                className="px-3 py-1 rounded text-xs bg-slate-100 text-red-600 hover:bg-slate-200"
+                                            >
+                                                Delete
+                                            </button>
+                                        </div>
                                     </div>
                                 </div>
                             ))}
@@ -431,7 +526,7 @@ const Staff = () => {
                                     className="w-full px-3 py-2 border rounded-lg bg-background"
                                 />
                             </div>
-                            {activeTab === 'riders' ? (
+                            {activeTab === 'riders' && (
                                 <div>
                                     <label className="block text-sm font-medium mb-1">Vehicle Type</label>
                                     <select
@@ -443,20 +538,6 @@ const Staff = () => {
                                         <option value="scooter">Scooter</option>
                                         <option value="bicycle">Bicycle</option>
                                         <option value="other">Other</option>
-                                    </select>
-                                </div>
-                            ) : (
-                                <div>
-                                    <label className="block text-sm font-medium mb-1">Role</label>
-                                    <select
-                                        name="vehicle_type" // reusing state
-                                        value={formData.vehicle_type} onChange={handleInputChange}
-                                        className="w-full px-3 py-2 border rounded-lg bg-background"
-                                    >
-                                        <option value="cashier">Cashier</option>
-                                        <option value="manager">Manager</option>
-                                        <option value="chef">Chef</option>
-                                        <option value="waiter">Waiter</option>
                                     </select>
                                 </div>
                             )}

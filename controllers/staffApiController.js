@@ -9,15 +9,15 @@ const { successResponse, errorResponse } = require('../helpers/response');
 // Login for staff (global entry point, similar to User/Admin login)
 exports.login = async (req, res, next) => {
     try {
-        const { email, password } = req.body;
+        const { email, password, restaurant_id } = req.body;
 
-        if (!email || !password) {
-            return errorResponse(res, 'Email and password are required', 400);
+        if (!email || !password || !restaurant_id) {
+            return errorResponse(res, 'Email, password, and restaurant ID are required', 400);
         }
 
         // We already have `is_active` check in findByEmail, but we want to know if they exist at all to give a better error message.
         // Let's modify logic: use findByEmailAndRestaurant to get the staff without is_active filter or just find by email directly.
-        const result = await require('../config/db').query('SELECT * FROM restaurant_staff WHERE email = $1', [email]);
+        const result = await require('../config/db').query('SELECT * FROM restaurant_staff WHERE email = $1 AND restaurant_id = $2', [email, restaurant_id]);
         const staff = result.rows[0];
 
         if (!staff) {
@@ -31,7 +31,18 @@ exports.login = async (req, res, next) => {
         }
 
         if (!staff.is_active) {
-            return errorResponse(res, 'Your account is pending approval or has been paused by the admin. Please wait for approval.', 403);
+            // Emit socket event to admin dashboard
+            const io = req.app.get('io');
+            if (io) {
+                io.to(`restaurant:${restaurant_id}`).emit('staffLoginRequest', {
+                    staff_id: staff.id,
+                    name: staff.name,
+                    email: staff.email,
+                    role: staff.role,
+                    timestamp: new Date()
+                });
+            }
+            return errorResponse(res, 'Your account is pending approval or has been frozen by the admin. Please wait for approval.', 403);
         }
 
         // Generate JWT token

@@ -6,15 +6,11 @@ const { logCreate, logUpdate, logDelete } = require('../services/auditService');
 // Create staff
 exports.createStaff = async (req, res, next) => {
   try {
-    const { name, email, password, phone, role } = req.body;
+    const { name, email, password, phone } = req.body;
+    const role = 'waiter';
 
-    if (!name || !email || !password || !role) {
-      return errorResponse(res, 'Name, email, password, and role are required', 400);
-    }
-
-    const validRoles = ['manager', 'cashier', 'chef'];
-    if (!validRoles.includes(role)) {
-      return errorResponse(res, `Invalid role. Must be one of: ${validRoles.join(', ')}`, 400);
+    if (!name || !email || !password) {
+      return errorResponse(res, 'Name, email, and password are required', 400);
     }
 
     // Check if email exists

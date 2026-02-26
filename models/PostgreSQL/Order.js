@@ -8,7 +8,7 @@ const Order = {
       user_id, restaurant_id, total_amount,
       delivery_lat, delivery_lng, items,
       table_id, guest_count, order_type, status,
-      reservation_id // [NEW]
+      reservation_id, customer_name, customer_phone, delivery_instructions
     } = orderData;
 
     // Start transaction - create order
@@ -17,16 +17,20 @@ const Order = {
       `INSERT INTO orders (
          id, user_id, restaurant_id, total_amount, 
          delivery_lat, delivery_lng, table_id, guest_count, 
-         order_type, status, reservation_id
+         order_type, status, reservation_id,
+         customer_name, customer_phone, delivery_instructions
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
        RETURNING *`,
       [
         uuidv4(), user_id || null, restaurant_id, total_amount,
         delivery_lat || null, delivery_lng || null,
         table_id || null, guest_count || null,
         order_type || 'delivery', status || 'pending',
-        reservation_id || null
+        reservation_id || null,
+        customer_name || null,
+        customer_phone || null,
+        delivery_instructions || null
       ]
     );
 

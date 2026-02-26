@@ -37,7 +37,7 @@ const Rider = {
     const result = await query(
       `SELECT id, name, email, phone, vehicle_number, restaurant_id, 
               current_lat, current_lng, is_available, status, 
-              wallet_balance, total_earnings, is_blocked, blocked_at, blocked_reason, created_at 
+              wallet_balance, total_earnings, created_at 
        FROM riders WHERE id = $1`,
       [id]
     );
@@ -49,7 +49,7 @@ const Rider = {
     const result = await query(
       `SELECT id, name, email, phone, vehicle_number, restaurant_id, 
               current_lat, current_lng, is_available, status, 
-              wallet_balance, total_earnings, is_blocked, blocked_at, blocked_reason, created_at 
+              wallet_balance, total_earnings, created_at 
        FROM riders WHERE restaurant_id = $1 ORDER BY created_at DESC`,
       [restaurant_id]
     );
@@ -96,8 +96,7 @@ const Rider = {
       UPDATE riders 
       SET ${setQueries.join(', ')} 
       WHERE id = $${keys.length + 1} 
-      RETURNING id, name, email, phone, vehicle_number, restaurant_id, is_available, 
-                is_blocked, blocked_at, blocked_reason, created_at
+      RETURNING id, name, email, phone, vehicle_number, restaurant_id, is_available, created_at
     `;
 
     const result = await query(queryStr, updateValues);

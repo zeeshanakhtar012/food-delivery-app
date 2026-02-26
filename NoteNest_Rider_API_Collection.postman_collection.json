@@ -1,0 +1,357 @@
+{
+    "info": {
+        "_postman_id": "4b92b604-db5f-4d69-8977-ef5645db9c2a",
+        "name": "NoteNest - Rider API",
+        "description": "API endpoints for the Delivery Riders in the NoteNest Food Delivery App.",
+        "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+    },
+    "item": [
+        {
+            "name": "Auth",
+            "item": [
+                {
+                    "name": "Rider Login",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"email\": \"rider1@example.com\",\n  \"password\": \"rider123\",\n  \"restaurant_id\": \"{{restaurant_id}}\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/login",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "login"
+                            ]
+                        }
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Orders",
+            "item": [
+                {
+                    "name": "Get Available Orders",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/orders/available",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "orders",
+                                "available"
+                            ]
+                        },
+                        "description": "Get all orders that are accepted, preparing, or ready, and have no rider assigned yet."
+                    }
+                },
+                {
+                    "name": "Get Assigned Orders",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/orders/assigned",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "orders",
+                                "assigned"
+                            ]
+                        },
+                        "description": "Get all orders that are currently assigned to the authenticated rider."
+                    }
+                },
+                {
+                    "name": "Accept Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/accept",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "orders",
+                                "{{order_id}}",
+                                "accept"
+                            ]
+                        },
+                        "description": "Accept an order to deliver. Sets rider status to busy."
+                    }
+                },
+                {
+                    "name": "Reject / Unassign Order",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/reject",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "orders",
+                                "{{order_id}}",
+                                "reject"
+                            ]
+                        },
+                        "description": "Reject an order that was previously accepted by the rider."
+                    }
+                },
+                {
+                    "name": "Update Order Status",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"picked_up\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/status",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "orders",
+                                "{{order_id}}",
+                                "status"
+                            ]
+                        },
+                        "description": "Valid statuses: accepted, preparing, picked_up, delivered."
+                    }
+                },
+                {
+                    "name": "Send Live Location Tracker",
+                    "request": {
+                        "method": "POST",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"lat\": 40.7128,\n  \"lng\": -74.0060\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/location",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "orders",
+                                "{{order_id}}",
+                                "location"
+                            ]
+                        },
+                        "description": "Updates rider location in the DB and emits an event to the `order:{id}` socket room."
+                    }
+                }
+            ]
+        },
+        {
+            "name": "Profile & Status",
+            "item": [
+                {
+                    "name": "Get Profile",
+                    "request": {
+                        "method": "GET",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            }
+                        ],
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/profile",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Profile",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"name\": \"New Rider Name\",\n  \"phone\": \"+1234567890\",\n  \"vehicle_number\": \"XYZ-9876\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/profile",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "profile"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Toggle Availability",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"is_available\": true\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/availability",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "availability"
+                            ]
+                        }
+                    }
+                },
+                {
+                    "name": "Update Status (Online/Offline/Busy)",
+                    "request": {
+                        "method": "PUT",
+                        "header": [
+                            {
+                                "key": "Authorization",
+                                "value": "Bearer {{rider_token}}"
+                            },
+                            {
+                                "key": "Content-Type",
+                                "value": "application/json"
+                            }
+                        ],
+                        "body": {
+                            "mode": "raw",
+                            "raw": "{\n  \"status\": \"online\"\n}"
+                        },
+                        "url": {
+                            "raw": "{{base_url}}/api/riders/status",
+                            "host": [
+                                "{{base_url}}"
+                            ],
+                            "path": [
+                                "api",
+                                "riders",
+                                "status"
+                            ]
+                        },
+                        "description": "Valid statuses: online, offline, busy"
+                    }
+                }
+            ]
+        }
+    ],
+    "variable": [
+        {
+            "key": "base_url",
+            "value": "http://localhost:5001"
+        },
+        {
+            "key": "rider_token",
+            "value": "your_jwt_token_here"
+        },
+        {
+            "key": "restaurant_id",
+            "value": "your_restaurant_id_here"
+        },
+        {
+            "key": "order_id",
+            "value": "some_order_uuid"
+        }
+    ]
+}
