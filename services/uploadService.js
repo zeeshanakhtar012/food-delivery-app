@@ -7,6 +7,8 @@ const cloudinary = require('cloudinary').v2;
 const multer = require('multer');
 const multerS3 = require('multer-s3');
 const path = require('path');
+const fs = require('fs');
+const { v4: uuidv4 } = require('uuid');
 
 // Configure AWS S3
 const s3 = new AWS.S3({
@@ -97,7 +99,14 @@ const uploadImage = async (file, folder = 'uploads') => {
       return await uploadToS3(file, folder);
     } else {
       // Fallback to local storage
-      throw new Error('Upload provider not configured. Set UPLOAD_PROVIDER in .env');
+      const uploadDir = path.join(__dirname, '..', 'uploads', folder);
+      if (!fs.existsSync(uploadDir)) {
+        fs.mkdirSync(uploadDir, { recursive: true });
+      }
+      const filename = `${Date.now()}-${uuidv4()}${path.extname(file.originalname || '')}`;
+      const filePath = path.join(uploadDir, filename);
+      fs.writeFileSync(filePath, file.buffer);
+      return `/uploads/${folder}/${filename}`;
     }
   } catch (error) {
     console.error('Upload error:', error);
@@ -150,8 +159,8 @@ const getUploadMiddleware = (options = {}) => {
     allowedMimes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp']
   } = options;
 
-  const storage = process.env.UPLOAD_PROVIDER === 's3' 
-    ? multerS3Config 
+  const storage = process.env.UPLOAD_PROVIDER === 's3'
+    ? multerS3Config
     : memoryStorage;
 
   return multer({

@@ -7,6 +7,7 @@ const moment = require('moment');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
 const { v4: uuidv4 } = require('uuid');
+const { uploadImage, deleteImage } = require('../services/uploadService');
 
 // === YOUR REAL MODELS ===
 const Food = require('../models/PostgreSQL/Food');
@@ -123,9 +124,17 @@ exports.createFood = async (req, res, next) => {
     }
 
     // Build image URL from uploaded file
-    const image_url = foodImages && foodImages.length > 0 ?
-      `/uploads/foods/${foodImages[0].filename}` :
-      (req.body.image_url || null);
+    let image_url = req.body.image_url || null;
+    if (foodImages && foodImages.length > 0) {
+      const file = foodImages[0];
+      if (file.location) {
+        image_url = file.location;
+      } else if (file.buffer) {
+        image_url = await uploadImage(file, 'foods');
+      } else if (file.filename) {
+        image_url = `/uploads/foods/${file.filename}`;
+      }
+    }
 
     const food = await Food.create({
       name,
@@ -201,7 +210,14 @@ exports.updateFood = async (req, res, next) => {
     // Handle image upload
     const foodImages = req.files?.foodImages;
     if (foodImages && foodImages.length > 0) {
-      updates.image_url = `/uploads/foods/${foodImages[0].filename}`;
+      const file = foodImages[0];
+      if (file.location) {
+        updates.image_url = file.location;
+      } else if (file.buffer) {
+        updates.image_url = await uploadImage(file, 'foods');
+      } else if (file.filename) {
+        updates.image_url = `/uploads/foods/${file.filename}`;
+      }
     } else if (req.body.image_url !== undefined) {
       updates.image_url = req.body.image_url;
     }

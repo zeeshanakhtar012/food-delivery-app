@@ -1,6 +1,7 @@
 const FoodCategory = require('../models/PostgreSQL/FoodCategory');
 const { successResponse, errorResponse } = require('../helpers/response');
 const { logCreate, logUpdate, logDelete } = require('../services/auditService');
+const { uploadImage, deleteImage } = require('../services/uploadService');
 
 // Create category
 exports.createCategory = async (req, res, next) => {
@@ -9,7 +10,14 @@ exports.createCategory = async (req, res, next) => {
     let { image_url } = req.body;
 
     if (req.file) {
-      image_url = `/uploads/categories/${req.file.filename}`;
+      const file = req.file;
+      if (file.location) {
+        image_url = file.location;
+      } else if (file.buffer) {
+        image_url = await uploadImage(file, 'categories');
+      } else if (file.filename) {
+        image_url = `/uploads/categories/${file.filename}`;
+      }
     }
 
     if (!name) {
@@ -83,7 +91,14 @@ exports.updateCategory = async (req, res, next) => {
     const updateData = { ...req.body };
 
     if (req.file) {
-      updateData.image_url = `/uploads/categories/${req.file.filename}`;
+      const file = req.file;
+      if (file.location) {
+        updateData.image_url = file.location;
+      } else if (file.buffer) {
+        updateData.image_url = await uploadImage(file, 'categories');
+      } else if (file.filename) {
+        updateData.image_url = `/uploads/categories/${file.filename}`;
+      }
     }
 
     const updated = await FoodCategory.update(id, updateData);

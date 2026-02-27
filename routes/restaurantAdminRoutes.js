@@ -5,6 +5,14 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 
+const { getUploadMiddleware } = require('../services/uploadService');
+// Initialize upload middleware for foods
+const upload = getUploadMiddleware({
+  fieldName: 'foodImages', // we'll use fields later
+  maxCount: 1,
+  maxSize: 5 * 1024 * 1024 // 5 MB
+});
+
 const restaurantAdminController = require('../controllers/restaurantAdminController');
 const restaurantTableController = require('../controllers/restaurantTableController');
 const {
@@ -15,36 +23,7 @@ const {
 
 const reservationController = require('../controllers/reservationController');
 
-// ---------------------------------------------------------------------
-// Multer configuration (unchanged)
-// ---------------------------------------------------------------------
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const uploadDir = path.join(__dirname, '../uploads/foods');
-    if (!fs.existsSync(uploadDir)) {
-      fs.mkdirSync(uploadDir, { recursive: true });
-    }
-    cb(null, uploadDir);
-  },
-  filename: (req, file, cb) => {
-    const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1E9);
-    cb(null, 'food-' + uniqueSuffix + path.extname(file.originalname));
-  },
-});
-
-const fileFilter = (req, file, cb) => {
-  if (file.mimetype.startsWith('image/')) {
-    cb(null, true);
-  } else {
-    cb(new Error('Only image files are allowed'), false);
-  }
-};
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-  fileFilter,
-});
+// Removed local multer configuration
 
 // ---------------------------------------------------------------------
 // Multer error-handler middleware
