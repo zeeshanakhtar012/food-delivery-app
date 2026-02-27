@@ -134,7 +134,7 @@ const OrderDrawer = ({ order, riders, onClose, onStatusUpdate, onRiderAssign }) 
                         <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wider">Customer</h3>
                         <div className="flex items-center gap-2 text-sm">
                             <User size={14} className="text-gray-400" />
-                            <span className="font-medium">{order.customer_name || order.user_name || 'Guest'}</span>
+                            <span className="font-medium">{order.customer_name || order.user_name || (order.staff_name ? `Waiter: ${order.staff_name.split(' ')[0]}` : 'Guest')}</span>
                         </div>
                         {(order.customer_phone || order.user_phone) && (
                             <div className="flex items-center gap-2 text-sm text-gray-600">
@@ -545,7 +545,7 @@ const Orders = () => {
                                             </td>
                                             <td className="px-4 py-3 whitespace-nowrap">
                                                 <div className="text-sm font-medium text-gray-900">
-                                                    {order.customer_name || order.user_name || 'Guest'}
+                                                    {order.customer_name || order.user_name || (order.staff_name ? `Waiter: ${order.staff_name.split(' ')[0]}` : 'Guest')}
                                                 </div>
                                                 <div className="text-xs text-gray-400">
                                                     {order.customer_phone || order.user_phone || '—'}

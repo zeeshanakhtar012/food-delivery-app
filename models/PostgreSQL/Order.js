@@ -8,7 +8,8 @@ const Order = {
       user_id, restaurant_id, total_amount,
       delivery_lat, delivery_lng, items,
       table_id, guest_count, order_type, status,
-      reservation_id, customer_name, customer_phone, delivery_instructions
+      reservation_id, customer_name, customer_phone, delivery_instructions,
+      staff_id
     } = orderData;
 
     // Start transaction - create order
@@ -18,9 +19,9 @@ const Order = {
          id, user_id, restaurant_id, total_amount, 
          delivery_lat, delivery_lng, table_id, guest_count, 
          order_type, status, reservation_id,
-         customer_name, customer_phone, delivery_instructions
+         customer_name, customer_phone, delivery_instructions, staff_id
        )
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
        RETURNING *`,
       [
         uuidv4(), user_id || null, restaurant_id, total_amount,
@@ -30,7 +31,8 @@ const Order = {
         reservation_id || null,
         customer_name || null,
         customer_phone || null,
-        delivery_instructions || null
+        delivery_instructions || null,
+        staff_id || null
       ]
     );
 
@@ -108,10 +110,12 @@ const Order = {
       SELECT o.*, 
              u.name as user_name, u.phone as user_phone,
              r.name as rider_name, r.phone as rider_phone,
+             s.name as staff_name,
              t.table_number
       FROM orders o
       LEFT JOIN users u ON o.user_id = u.id
       LEFT JOIN riders r ON o.rider_id = r.id
+      LEFT JOIN restaurant_staff s ON o.staff_id = s.id
       LEFT JOIN restaurant_tables t ON o.table_id = t.id
       WHERE o.restaurant_id = $1
     `;
@@ -317,9 +321,10 @@ const Order = {
     // Get 5 most recent orders for the dashboard feed
     const recentListResult = await query(
       `SELECT o.id, o.status, o.total_amount, o.order_type, o.created_at,
-              o.customer_name, t.table_number
+              o.customer_name, t.table_number, s.name as staff_name
        FROM orders o
        LEFT JOIN restaurant_tables t ON o.table_id = t.id
+       LEFT JOIN restaurant_staff s ON o.staff_id = s.id
        WHERE o.restaurant_id = $1
        ORDER BY o.created_at DESC
        LIMIT 5`,

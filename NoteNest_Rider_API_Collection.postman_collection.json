@@ -24,7 +24,7 @@
                             "raw": "{\n  \"email\": \"rider1@example.com\",\n  \"password\": \"rider123\",\n  \"restaurant_id\": \"{{restaurant_id}}\"\n}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/api/riders/login",
+                            "raw": "{{base_url}}/api/rider/login",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -52,7 +52,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/api/riders/orders/available",
+                            "raw": "{{base_url}}/api/rider/orders/available",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -77,7 +77,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/api/riders/orders/assigned",
+                            "raw": "{{base_url}}/api/rider/orders/assigned",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -102,7 +102,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/accept",
+                            "raw": "{{base_url}}/api/rider/orders/{{order_id}}/accept",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -128,7 +128,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/reject",
+                            "raw": "{{base_url}}/api/rider/orders/{{order_id}}/reject",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -162,7 +162,7 @@
                             "raw": "{\n  \"status\": \"picked_up\"\n}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/status",
+                            "raw": "{{base_url}}/api/rider/orders/{{order_id}}/status",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -196,7 +196,7 @@
                             "raw": "{\n  \"lat\": 40.7128,\n  \"lng\": -74.0060\n}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/api/riders/orders/{{order_id}}/location",
+                            "raw": "{{base_url}}/api/rider/orders/{{order_id}}/location",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -227,7 +227,7 @@
                             }
                         ],
                         "url": {
-                            "raw": "{{base_url}}/api/riders/profile",
+                            "raw": "{{base_url}}/api/rider/profile",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -258,7 +258,7 @@
                             "raw": "{\n  \"name\": \"New Rider Name\",\n  \"phone\": \"+1234567890\",\n  \"vehicle_number\": \"XYZ-9876\"\n}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/api/riders/profile",
+                            "raw": "{{base_url}}/api/rider/profile",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -289,7 +289,7 @@
                             "raw": "{\n  \"is_available\": true\n}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/api/riders/availability",
+                            "raw": "{{base_url}}/api/rider/availability",
                             "host": [
                                 "{{base_url}}"
                             ],
@@ -320,7 +320,7 @@
                             "raw": "{\n  \"status\": \"online\"\n}"
                         },
                         "url": {
-                            "raw": "{{base_url}}/api/riders/status",
+                            "raw": "{{base_url}}/api/rider/status",
                             "host": [
                                 "{{base_url}}"
                             ],

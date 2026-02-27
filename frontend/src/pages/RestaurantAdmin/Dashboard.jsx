@@ -263,7 +263,7 @@ const Dashboard = () => {
                                         </div>
                                         <div>
                                             <p className="font-semibold text-sm text-foreground">
-                                                {order.customer_name || (order.order_type === 'dine_in' ? `Table ${order.table_number || '—'}` : 'Guest')}
+                                                {order.customer_name || (order.staff_name ? `Waiter: ${order.staff_name.split(' ')[0]}` : (order.order_type === 'dine_in' ? `Table ${order.table_number || '—'}` : 'Guest'))}
                                             </p>
                                             <p className="text-xs text-muted-foreground flex items-center gap-1">
                                                 <span>#{order.id.slice(0, 8)}</span>

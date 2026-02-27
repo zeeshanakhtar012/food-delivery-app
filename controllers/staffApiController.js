@@ -212,6 +212,7 @@ exports.createOrder = async (req, res, next) => {
             guest_count: guest_count || 1,
             order_type: 'dine_in',
             status: 'pending', // could be 'preparing' or 'pending'
+            staff_id: req.user.id, // Record which staff member placed this order
             items: processedItems
         });
 
