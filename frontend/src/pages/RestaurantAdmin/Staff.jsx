@@ -36,6 +36,9 @@ const Staff = () => {
     // Staff Requests State
     const [staffRequests, setStaffRequests] = useState([]);
 
+    // Rider Requests State
+    const [riderRequests, setRiderRequests] = useState([]);
+
     const socket = useSocket();
 
     useEffect(() => {
@@ -49,11 +52,22 @@ const Staff = () => {
                 return [requestData, ...prev];
             });
             // Show alert or toast here if needed
-            alert(`New login request from ${requestData.name}`);
+            alert(`New login request from Staff: ${requestData.name}`);
+        });
+
+        socket.on('riderLoginRequest', (requestData) => {
+            setRiderRequests(prev => {
+                // Check if request already exists for this rider
+                const exists = prev.find(req => req.rider_id === requestData.rider_id);
+                if (exists) return prev;
+                return [requestData, ...prev];
+            });
+            alert(`New login request from Rider: ${requestData.name}`);
         });
 
         return () => {
             socket.off('staffLoginRequest');
+            socket.off('riderLoginRequest');
         };
     }, [socket]);
 
@@ -238,6 +252,22 @@ const Staff = () => {
         setStaffRequests(prev => prev.filter(req => req.staff_id !== staffId));
     };
 
+    const handleApproveRider = async (riderId) => {
+        try {
+            await restaurantAdmin.unblockRider(riderId);
+            setRiderRequests(prev => prev.filter(req => req.rider_id !== riderId));
+            fetchRiders();
+            alert('Rider login approved successfully.');
+        } catch (error) {
+            console.error('Error approving rider:', error);
+            alert('Failed to approve rider login');
+        }
+    };
+
+    const handleRejectRider = (riderId) => {
+        setRiderRequests(prev => prev.filter(req => req.rider_id !== riderId));
+    };
+
     const filteredRiders = riders.filter(r =>
         r.name.toLowerCase().includes(search.toLowerCase()) ||
         r.phone.includes(search)
@@ -329,6 +359,39 @@ const Staff = () => {
                                     </button>
                                     <button
                                         onClick={() => handleRejectStaff(request.staff_id)}
+                                        className="flex-1 px-3 py-2 bg-white text-orange-700 border border-orange-300 rounded text-sm font-medium hover:bg-orange-100 transition-colors"
+                                    >
+                                        Dismiss
+                                    </button>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {activeTab === 'riders' && riderRequests.length > 0 && (
+                <div className="mb-8">
+                    <h3 className="text-lg font-bold text-orange-600 mb-4 flex items-center gap-2">
+                        <Truck className="h-5 w-5" /> Pending Rider Logins
+                    </h3>
+                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                        {riderRequests.map(request => (
+                            <div key={request.rider_id} className="bg-orange-50 rounded-xl border border-orange-200 shadow-sm p-5 flex flex-col gap-3">
+                                <div>
+                                    <h4 className="font-bold text-lg text-orange-900">{request.name}</h4>
+                                    <p className="text-sm text-orange-700">{request.email}</p>
+                                    <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 mt-1 block">{request.vehicle_number || 'N/A'}</span>
+                                </div>
+                                <div className="mt-2 pt-3 border-t border-orange-200 flex gap-2">
+                                    <button
+                                        onClick={() => handleApproveRider(request.rider_id)}
+                                        className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors"
+                                    >
+                                        Approve
+                                    </button>
+                                    <button
+                                        onClick={() => handleRejectRider(request.rider_id)}
                                         className="flex-1 px-3 py-2 bg-white text-orange-700 border border-orange-300 rounded text-sm font-medium hover:bg-orange-100 transition-colors"
                                     >
                                         Dismiss

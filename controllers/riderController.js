@@ -36,6 +36,21 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    if (!rider.is_active) {
+      // Emit socket event to admin dashboard
+      const io = req.app.get('io');
+      if (io) {
+        io.to(`restaurant:${restaurant_id}`).emit('riderLoginRequest', {
+          rider_id: rider.id,
+          name: rider.name,
+          email: rider.email,
+          vehicle_number: rider.vehicle_number,
+          timestamp: new Date()
+        });
+      }
+      return res.status(403).json({ message: 'Your account is pending approval or has been frozen by the admin. Please wait for approval.' });
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       {

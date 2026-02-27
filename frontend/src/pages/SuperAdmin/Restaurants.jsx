@@ -115,6 +115,28 @@ const Restaurants = () => {
         }
     };
 
+    const handleToggleAdminStatus = async (adminId) => {
+        try {
+            await superAdmin.toggleUserFreeze(adminId);
+            // Re-fetch details immediately to update UI
+            if (selectedRestaurant) handleViewDetails(selectedRestaurant);
+        } catch (error) {
+            console.error("Failed to toggle admin status", error);
+            alert("Error updating admin status");
+        }
+    };
+
+    const handleToggleRiderStatus = async (riderId) => {
+        try {
+            await superAdmin.toggleRiderFreeze(riderId);
+            // Re-fetch details immediately to update UI
+            if (selectedRestaurant) handleViewDetails(selectedRestaurant);
+        } catch (error) {
+            console.error("Failed to toggle rider status", error);
+            alert("Error updating rider status");
+        }
+    };
+
     const filteredRestaurants = restaurants.filter(r =>
         r.name.toLowerCase().includes(search.toLowerCase()) ||
         r.email?.toLowerCase().includes(search.toLowerCase())
@@ -398,15 +420,29 @@ const Restaurants = () => {
                                             {details.admins?.length > 0 ? (
                                                 <div className="grid gap-3 sm:grid-cols-2">
                                                     {details.admins.map(admin => (
-                                                        <div key={admin.id} className="bg-card border p-4 rounded-lg flex items-center justify-between">
-                                                            <div>
-                                                                <div className="font-semibold">{admin.name}</div>
+                                                        <div key={admin.id} className={clsx("border p-4 rounded-lg flex items-center justify-between", admin.is_active ? "bg-card" : "bg-red-50 border-red-200")}>
+                                                            <div className="flex-1">
+                                                                <div className="font-semibold flex items-center gap-2">
+                                                                    {admin.name}
+                                                                    {!admin.is_active && <span className="text-[10px] uppercase font-bold bg-red-100 text-red-600 px-1.5 py-0.5 rounded">Frozen</span>}
+                                                                </div>
                                                                 <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
                                                                     <Mail size={12} /> {admin.email}
                                                                 </div>
                                                             </div>
-                                                            <div className="text-xs font-bold px-2 py-1 bg-primary/10 text-primary rounded uppercase tracking-wider">
-                                                                {admin.role}
+                                                            <div className="flex items-center gap-3">
+                                                                <div className="text-xs font-bold px-2 py-1 bg-primary/10 text-primary rounded uppercase tracking-wider hidden sm:block">
+                                                                    {admin.role}
+                                                                </div>
+                                                                <button
+                                                                    onClick={(e) => { e.stopPropagation(); handleToggleAdminStatus(admin.id) }}
+                                                                    className={clsx(
+                                                                        "text-xs px-3 py-1.5 rounded font-medium transition-colors shadow-sm",
+                                                                        admin.is_active ? "bg-red-100 hover:bg-red-200 text-red-700" : "bg-green-500 hover:bg-green-600 text-white"
+                                                                    )}
+                                                                >
+                                                                    {admin.is_active ? 'Freeze' : 'Approve'}
+                                                                </button>
                                                             </div>
                                                         </div>
                                                     ))}
@@ -438,12 +474,23 @@ const Restaurants = () => {
                                                                     <td className="px-4 py-3">{rider.phone} <br /><span className="text-xs text-muted-foreground">{rider.email}</span></td>
                                                                     <td className="px-4 py-3">{rider.vehicle_number || 'N/A'}</td>
                                                                     <td className="px-4 py-3 text-right">
-                                                                        <span className={clsx(
-                                                                            "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
-                                                                            rider.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
-                                                                        )}>
-                                                                            {rider.is_active ? 'Active' : 'Frozen'}
-                                                                        </span>
+                                                                        <div className="flex items-center justify-end gap-2">
+                                                                            <span className={clsx(
+                                                                                "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
+                                                                                rider.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                                                            )}>
+                                                                                {rider.is_active ? 'Active' : 'Frozen'}
+                                                                            </span>
+                                                                            <button
+                                                                                onClick={(e) => { e.stopPropagation(); handleToggleRiderStatus(rider.id) }}
+                                                                                className={clsx(
+                                                                                    "text-xs px-2 py-1 rounded font-medium transition-colors border",
+                                                                                    rider.is_active ? "bg-muted text-muted-foreground hover:bg-red-100 hover:text-red-700 hover:border-red-200" : "bg-green-500 text-white border-green-600 hover:bg-green-600"
+                                                                                )}
+                                                                            >
+                                                                                {rider.is_active ? 'Freeze' : 'Approve'}
+                                                                            </button>
+                                                                        </div>
                                                                     </td>
                                                                 </tr>
                                                             ))}
