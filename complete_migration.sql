@@ -151,6 +151,9 @@ CREATE TABLE IF NOT EXISTS restaurant_staff (
     phone VARCHAR(50),
     role VARCHAR(50) NOT NULL,
     is_active BOOLEAN DEFAULT TRUE,
+    is_blocked BOOLEAN DEFAULT FALSE,
+    blocked_reason TEXT,
+    blocked_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(restaurant_id, email)
 );
@@ -210,7 +213,24 @@ CREATE TABLE IF NOT EXISTS restaurant_tables (
     UNIQUE(restaurant_id, table_number)
 );
 
--- 6. Orders & Payments
+-- 6. Reservations (Moved up)
+CREATE TABLE IF NOT EXISTS reservations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_phone VARCHAR(50) NOT NULL,
+    guest_count INTEGER NOT NULL DEFAULT 1,
+    reservation_time TIMESTAMP NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, cancelled, seated, completed
+    special_requests TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_id ON reservations(restaurant_id);
+
+-- 7. Orders & Payments
 
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -218,6 +238,7 @@ CREATE TABLE IF NOT EXISTS orders (
     restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
     rider_id UUID REFERENCES riders(id) ON DELETE SET NULL,
     table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL, -- Added
+    reservation_id UUID REFERENCES reservations(id) ON DELETE SET NULL, -- Added
     guest_count INTEGER, -- Added
     customer_name VARCHAR(255), -- Added
     customer_phone VARCHAR(50), -- Added
@@ -588,19 +609,3 @@ CREATE INDEX IF NOT EXISTS idx_orders_rider_id ON orders(rider_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_user_id ON audit_logs(user_id);
 CREATE INDEX IF NOT EXISTS idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
 
--- 12. Reservations (New)
-CREATE TABLE IF NOT EXISTS reservations (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
-    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
-    table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL,
-    customer_name VARCHAR(255) NOT NULL,
-    customer_phone VARCHAR(50) NOT NULL,
-    guest_count INTEGER NOT NULL DEFAULT 1,
-    reservation_time TIMESTAMP NOT NULL,
-    status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, cancelled, seated, completed
-    special_requests TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
-CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_id ON reservations(restaurant_id);
