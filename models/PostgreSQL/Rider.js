@@ -17,7 +17,7 @@ const Rider = {
     const result = await query(
       `INSERT INTO riders (id, name, email, password, phone, vehicle_number, restaurant_id)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
-       RETURNING id, name, email, phone, vehicle_number, restaurant_id, is_available, created_at`,
+       RETURNING id, name, email, phone, vehicle_number, restaurant_id, is_available, is_active, is_blocked, created_at`,
       [uuidv4(), name, email || null, hashedPassword, phone, vehicleNumber, restaurant_id]
     );
     return result.rows[0];
@@ -36,7 +36,7 @@ const Rider = {
   findById: async (id) => {
     const result = await query(
       `SELECT id, name, email, phone, vehicle_number, restaurant_id, 
-              current_lat, current_lng, is_available, status, 
+              current_lat, current_lng, is_available, status, is_active, is_blocked,
               wallet_balance, total_earnings, created_at 
        FROM riders WHERE id = $1`,
       [id]
@@ -48,7 +48,7 @@ const Rider = {
   findByRestaurantId: async (restaurant_id) => {
     const result = await query(
       `SELECT id, name, email, phone, vehicle_number, restaurant_id, 
-              current_lat, current_lng, is_available, status, 
+              current_lat, current_lng, is_available, status, is_active, is_blocked,
               wallet_balance, total_earnings, created_at 
        FROM riders WHERE restaurant_id = $1 ORDER BY created_at DESC`,
       [restaurant_id]
@@ -96,7 +96,7 @@ const Rider = {
       UPDATE riders 
       SET ${setQueries.join(', ')} 
       WHERE id = $${keys.length + 1} 
-      RETURNING id, name, email, phone, vehicle_number, restaurant_id, is_available, created_at
+      RETURNING id, name, email, phone, vehicle_number, restaurant_id, is_available, is_active, is_blocked, created_at
     `;
 
     const result = await query(queryStr, updateValues);
@@ -114,7 +114,7 @@ const Rider = {
     const result = await query(
       `SELECT rid.id, rid.name, rid.email, rid.phone, rid.vehicle_number, rid.restaurant_id, 
               rid.current_lat, rid.current_lng, rid.is_available, rid.status, 
-              rid.wallet_balance, rid.total_earnings, rid.created_at, rid.is_active, r.name as restaurant_name 
+              rid.wallet_balance, rid.total_earnings, rid.created_at, rid.is_active, rid.is_blocked, r.name as restaurant_name 
        FROM riders rid LEFT JOIN restaurants r ON rid.restaurant_id = r.id ORDER BY rid.created_at DESC`
     );
     return result.rows;
