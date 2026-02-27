@@ -5,7 +5,6 @@ const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // Public routes
 router.post('/login', superAdminController.login);
-router.get('/run-migrations', superAdminController.runMigrations);
 
 // Protected routes - require super admin authentication
 router.use(authenticate);

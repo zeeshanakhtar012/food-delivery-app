@@ -392,32 +392,3 @@ exports.deleteRider = async (req, res) => {
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };
-
-// Run DB Migrations
-exports.runMigrations = async (req, res) => {
-  try {
-    const { query } = require('../config/db');
-
-    // Add session_token to admins
-    await query(`
-      ALTER TABLE admins 
-      ADD COLUMN IF NOT EXISTS session_token VARCHAR(255);
-    `);
-
-    // Ensure all other critical columns exist for orders
-    await query(`
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name VARCHAR(255);
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_phone VARCHAR(50);
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS guest_count INTEGER;
-      ALTER TABLE orders ADD COLUMN IF NOT EXISTS delivery_instructions TEXT;
-    `);
-
-    res.json({
-      success: true,
-      message: 'Migrations applied successfully on the live database!'
-    });
-  } catch (error) {
-    console.error('Migration error:', error);
-    res.status(500).json({ success: false, message: 'Server error', error: error.message });
-  }
-};
