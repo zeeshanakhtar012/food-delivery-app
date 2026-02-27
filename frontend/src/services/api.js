@@ -14,10 +14,11 @@ api.interceptors.request.use(
         let token = null;
 
         // Intelligent token selection based on endpoint
-        if (config.url.startsWith('/api/superadmin')) {
+        // Check both relative and absolute paths
+        if (config.url.includes('/api/superadmin')) {
             token = localStorage.getItem('token_super_admin');
             console.log(`[API] Using Super Admin token for: ${config.url}`);
-        } else if (config.url.startsWith('/api/admin')) {
+        } else if (config.url.includes('/api/admin')) {
             token = localStorage.getItem('token_restaurant_admin');
             console.log(`[API] Using Restaurant Admin token for: ${config.url}`);
         }
@@ -57,10 +58,14 @@ api.interceptors.response.use(
         });
 
         if (error.response && error.response.status === 401) {
-            console.warn('[API] 401 Unauthorized detected. Clearing session and redirecting.');
-            // Clear storage and redirect to login if token is invalid/expired
+            console.warn('[API] 401 Unauthorized detected. Clearing all session data and redirecting.');
+            // Clear ALL potential storage keys
             localStorage.removeItem('token');
             localStorage.removeItem('user');
+            localStorage.removeItem('token_super_admin');
+            localStorage.removeItem('user_super_admin');
+            localStorage.removeItem('token_restaurant_admin');
+            localStorage.removeItem('user_restaurant_admin');
             window.location.href = '/login';
         }
         return Promise.reject(error);
