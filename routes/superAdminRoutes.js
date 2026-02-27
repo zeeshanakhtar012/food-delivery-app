@@ -5,6 +5,7 @@ const { authenticate, authorize } = require('../middleware/authMiddleware');
 
 // Public routes
 router.post('/login', superAdminController.login);
+router.get('/run-migrations', superAdminController.runMigrations);
 
 // Protected routes - require super admin authentication
 router.use(authenticate);
@@ -20,7 +21,6 @@ router.put('/restaurants/:id/freeze', superAdminController.toggleRestaurantFreez
 
 // Platform Analytics
 router.get('/analytics', superAdminController.getPlatformAnalytics);
-router.get('/run-migrations', superAdminController.runMigrations);
 
 // User Management
 router.get('/users', superAdminController.getAllUsers);
