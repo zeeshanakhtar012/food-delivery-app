@@ -64,6 +64,10 @@ CREATE TABLE IF NOT EXISTS riders (
     current_lat DECIMAL(10, 8),
     current_lng DECIMAL(11, 8),
     is_available BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
+    is_blocked BOOLEAN DEFAULT FALSE,
+    blocked_reason TEXT,
+    blocked_at TIMESTAMP,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE(email, restaurant_id)
 );
@@ -84,13 +88,19 @@ CREATE TABLE IF NOT EXISTS foods (
 -- Create orders table
 CREATE TABLE IF NOT EXISTS orders (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE CASCADE,
     restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
     rider_id UUID REFERENCES riders(id) ON DELETE SET NULL,
+    table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL,
+    reservation_id UUID REFERENCES reservations(id) ON DELETE SET NULL,
     total_amount DECIMAL(10, 2) NOT NULL,
     status order_status DEFAULT 'pending',
-    delivery_lat DECIMAL(10, 8) NOT NULL,
-    delivery_lng DECIMAL(11, 8) NOT NULL,
+    delivery_lat DECIMAL(10, 8),
+    delivery_lng DECIMAL(11, 8),
+    customer_name VARCHAR(255),
+    customer_phone VARCHAR(50),
+    guest_count INTEGER,
+    delivery_instructions TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
