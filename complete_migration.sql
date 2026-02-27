@@ -254,6 +254,7 @@ CREATE TABLE IF NOT EXISTS orders (
     payment_status payment_status DEFAULT 'pending',
     delivery_address TEXT,
     delivery_instructions TEXT, -- Added
+    staff_id UUID REFERENCES restaurant_staff(id) ON DELETE SET NULL, -- Added
     sub_total DECIMAL(10,2) DEFAULT 0,
     tax_amount DECIMAL(10,2) DEFAULT 0,
     delivery_fee_amount DECIMAL(10,2) DEFAULT 0,

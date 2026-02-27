@@ -6,13 +6,21 @@ const migrations = [
     'createFoodCategoriesTable.js',
     'migrateFoodsTable.js',
     'migrateRestaurantStaffTable.js',
+    'migrateFoodAddonsTable.js',
+    'migrateRiderFeatures.js',
     'migrateCouponsAndBanners.js',
     'createAuditLogsTable.js',
     'createDiningTablesTable.js',
     'updateOrdersSchema.js',
     'addAddonsToOrderItems.js',
     'createReservationsTable.js',
-    'addStockToFoods.js'
+    'addStockToFoods.js',
+    'add_order_type.js',
+    'migrate_orders_instructions.js',
+    'migrate_orders_schema.js',
+    'migrate_schema_fix.js',
+    'migrate_session_token.js',
+    'migrate_staff_id.js'
 ];
 
 async function runMigrations() {

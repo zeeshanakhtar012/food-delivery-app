@@ -102,6 +102,7 @@ CREATE TABLE IF NOT EXISTS orders (
     customer_phone VARCHAR(50),
     guest_count INTEGER,
     delivery_instructions TEXT,
+    staff_id UUID REFERENCES restaurant_staff(id) ON DELETE SET NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
