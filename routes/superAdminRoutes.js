@@ -21,4 +21,14 @@ router.put('/restaurants/:id/freeze', superAdminController.toggleRestaurantFreez
 // Platform Analytics
 router.get('/analytics', superAdminController.getPlatformAnalytics);
 
+// User Management
+router.get('/users', superAdminController.getAllUsers);
+router.put('/users/:id/freeze', superAdminController.toggleUserFreeze);
+router.delete('/users/:id', superAdminController.deleteUser);
+
+// Rider Management
+router.get('/riders', superAdminController.getAllRiders);
+router.put('/riders/:id/freeze', superAdminController.toggleRiderFreeze);
+router.delete('/riders/:id', superAdminController.deleteRider);
+
 module.exports = router;

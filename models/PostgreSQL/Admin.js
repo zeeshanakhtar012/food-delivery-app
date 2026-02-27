@@ -7,7 +7,7 @@ const Admin = {
   create: async (adminData) => {
     const { name, email, password, restaurant_id, role } = adminData;
     const hashedPassword = await bcrypt.hash(password, 10);
-    
+
     const result = await query(
       `INSERT INTO admins (id, name, email, password, restaurant_id, role)
        VALUES ($1, $2, $3, $4, $5, $6)
@@ -29,7 +29,7 @@ const Admin = {
   // Find admin by ID
   findById: async (id) => {
     const result = await query(
-      `SELECT id, name, email, restaurant_id, role, created_at 
+      `SELECT id, name, email, restaurant_id, role, created_at, session_token 
        FROM admins WHERE id = $1`,
       [id]
     );
@@ -53,45 +53,54 @@ const Admin = {
     );
     return result.rows;
   },
-// Update admin (excluding password unless explicitly provided)
-// Inside Admin model
-update: async (id, updates) => {
-  const { name, email, password } = updates;
+  // Update admin (excluding password unless explicitly provided)
+  // Inside Admin model
+  update: async (id, updates) => {
+    const { name, email, password } = updates;
 
-  const setClauses = [];
-  const values = [];
-  let paramIndex = 1;
+    const setClauses = [];
+    const values = [];
+    let paramIndex = 1;
 
-  if (name !== undefined) {
-    setClauses.push(`name = $${paramIndex++}`);
-    values.push(name);
-  }
-  if (email !== undefined) {
-    setClauses.push(`email = $${paramIndex++}`);
-    values.push(email);
-  }
-  if (password !== undefined) {
-    const hashedPassword = await bcrypt.hash(password, 10);
-    setClauses.push(`password = $${paramIndex++}`);
-    values.push(hashedPassword);
-  }
+    if (name !== undefined) {
+      setClauses.push(`name = $${paramIndex++}`);
+      values.push(name);
+    }
+    if (email !== undefined) {
+      setClauses.push(`email = $${paramIndex++}`);
+      values.push(email);
+    }
+    if (password !== undefined) {
+      const hashedPassword = await bcrypt.hash(password, 10);
+      setClauses.push(`password = $${paramIndex++}`);
+      values.push(hashedPassword);
+    }
 
-  if (setClauses.length === 0) {
-    return null;
-  }
+    if (setClauses.length === 0) {
+      return null;
+    }
 
-  const queryText = `
+    const queryText = `
     UPDATE admins
     SET ${setClauses.join(', ')}
     WHERE id = $${paramIndex}
     RETURNING id, name, email, restaurant_id, role, created_at
   `;
 
-  values.push(id);
+    values.push(id);
 
-  const result = await query(queryText, values);
-  return result.rows[0] || null;
-},
+    const result = await query(queryText, values);
+    return result.rows[0] || null;
+  },
+  // Update session token
+  updateSessionToken: async (id, session_token) => {
+    const result = await query(
+      `UPDATE admins SET session_token = $1 WHERE id = $2 RETURNING session_token`,
+      [session_token, id]
+    );
+    return result.rows[0];
+  },
+
   // Verify password
   comparePassword: async (candidatePassword, hashedPassword) => {
     return await bcrypt.compare(candidatePassword, hashedPassword);

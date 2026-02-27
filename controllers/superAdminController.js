@@ -12,20 +12,20 @@ exports.createRestaurant = async (req, res) => {
 
     // Validate required fields
     if (!restaurant || !admin) {
-      return res.status(400).json({ 
-        message: 'Restaurant and admin data are required' 
+      return res.status(400).json({
+        message: 'Restaurant and admin data are required'
       });
     }
 
     if (!restaurant.name || !restaurant.email || !restaurant.phone || !restaurant.address) {
-      return res.status(400).json({ 
-        message: 'Restaurant name, email, phone, and address are required' 
+      return res.status(400).json({
+        message: 'Restaurant name, email, phone, and address are required'
       });
     }
 
     if (!admin.name || !admin.email || !admin.password) {
-      return res.status(400).json({ 
-        message: 'Admin name, email, and password are required' 
+      return res.status(400).json({
+        message: 'Admin name, email, and password are required'
       });
     }
 
@@ -89,8 +89,8 @@ exports.deleteRestaurant = async (req, res) => {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(restaurantId)) {
-      return res.status(400).json({ 
-        message: 'Invalid restaurant ID format. Expected UUID format.' 
+      return res.status(400).json({
+        message: 'Invalid restaurant ID format. Expected UUID format.'
       });
     }
 
@@ -119,8 +119,8 @@ exports.toggleRestaurantFreeze = async (req, res) => {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(restaurantId)) {
-      return res.status(400).json({ 
-        message: 'Invalid restaurant ID format. Expected UUID format.' 
+      return res.status(400).json({
+        message: 'Invalid restaurant ID format. Expected UUID format.'
       });
     }
 
@@ -149,7 +149,7 @@ exports.toggleRestaurantFreeze = async (req, res) => {
 exports.getAllRestaurants = async (req, res) => {
   try {
     const restaurants = await Restaurant.findAll();
-    
+
     res.json({
       message: 'Restaurants retrieved successfully',
       restaurants
@@ -171,8 +171,8 @@ exports.getRestaurantDetails = async (req, res) => {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(restaurantId)) {
-      return res.status(400).json({ 
-        message: 'Invalid restaurant ID format. Expected UUID format.' 
+      return res.status(400).json({
+        message: 'Invalid restaurant ID format. Expected UUID format.'
       });
     }
 
@@ -184,12 +184,21 @@ exports.getRestaurantDetails = async (req, res) => {
     const admins = await Admin.findByRestaurantId(restaurantId);
     const riders = await Rider.findByRestaurantId(restaurantId);
 
+    const User = require('../models/PostgreSQL/User');
+    const users = await User.findByRestaurantId(restaurantId);
+
+    // Fallback if Analytics is not imported globally or needs to be invoked
+    const AnalyticsModel = require('../models/PostgreSQL/Analytics');
+    const analytics = await AnalyticsModel.getRestaurantAnalytics(restaurantId);
+
     res.json({
       message: 'Restaurant details retrieved successfully',
       restaurant: {
         ...restaurant,
         admins,
-        riders
+        riders,
+        users,
+        analytics
       }
     });
   } catch (error) {
@@ -209,8 +218,8 @@ exports.getRestaurantAnalytics = async (req, res) => {
     // Validate UUID format
     const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
     if (!uuidRegex.test(restaurantId)) {
-      return res.status(400).json({ 
-        message: 'Invalid restaurant ID format. Expected UUID format.' 
+      return res.status(400).json({
+        message: 'Invalid restaurant ID format. Expected UUID format.'
       });
     }
 
@@ -292,6 +301,94 @@ exports.getPlatformAnalytics = async (req, res) => {
     });
   } catch (error) {
     console.error('Get platform analytics error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get all users
+exports.getAllUsers = async (req, res) => {
+  try {
+    const User = require('../models/PostgreSQL/User');
+    const users = await User.findAll();
+    res.json({ message: 'Users retrieved successfully', users });
+  } catch (error) {
+    console.error('Get all users error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Freeze/unfreeze user
+exports.toggleUserFreeze = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const User = require('../models/PostgreSQL/User');
+    const user = await User.toggleActive(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: `User ${user.is_active ? 'activated' : 'frozen'} successfully`, user });
+  } catch (error) {
+    console.error('Toggle user freeze error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Delete user
+exports.deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const User = require('../models/PostgreSQL/User');
+    const user = await User.delete(id);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Delete user error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Get all riders
+exports.getAllRiders = async (req, res) => {
+  try {
+    const Rider = require('../models/PostgreSQL/Rider');
+    const riders = await Rider.findAll();
+    res.json({ message: 'Riders retrieved successfully', riders });
+  } catch (error) {
+    console.error('Get all riders error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Freeze/unfreeze rider
+exports.toggleRiderFreeze = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const Rider = require('../models/PostgreSQL/Rider');
+    const rider = await Rider.toggleActive(id);
+    if (!rider) {
+      return res.status(404).json({ message: 'Rider not found' });
+    }
+    res.json({ message: `Rider ${rider.is_active ? 'activated' : 'frozen'} successfully`, rider });
+  } catch (error) {
+    console.error('Toggle rider freeze error:', error);
+    res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Delete rider
+exports.deleteRider = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const Rider = require('../models/PostgreSQL/Rider');
+    const rider = await Rider.delete(id);
+    if (!rider) {
+      return res.status(404).json({ message: 'Rider not found' });
+    }
+    res.json({ message: 'Rider deleted successfully' });
+  } catch (error) {
+    console.error('Delete rider error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
   }
 };

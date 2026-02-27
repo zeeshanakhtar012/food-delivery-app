@@ -23,6 +23,7 @@ const Restaurants = () => {
     const [selectedRestaurant, setSelectedRestaurant] = useState(null);
     const [detailsLoading, setDetailsLoading] = useState(false);
     const [details, setDetails] = useState(null);
+    const [activeTab, setActiveTab] = useState('overview');
 
     const fetchRestaurants = async () => {
         try {
@@ -224,12 +225,11 @@ const Restaurants = () => {
             {/* Create Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    {/* ... Previous Modal Code ... */}
                     {/* Reusing the same structure as before, just ensuring it's included */}
-                    <div className="bg-background rounded-xl shadow-xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh]">
-                        <div className="p-6 border-b">
+                    <div className="bg-white text-slate-900 rounded-xl shadow-2xl w-full max-w-2xl overflow-hidden flex flex-col max-h-[90vh] border border-slate-200">
+                        <div className="p-6 border-b border-slate-200">
                             <h2 className="text-xl font-bold">Add New Restaurant</h2>
-                            <p className="text-sm text-muted-foreground">Create a restaurant and its initial admin account.</p>
+                            <p className="text-sm text-slate-500">Create a restaurant and its initial admin account.</p>
                         </div>
                         <div className="p-6 overflow-y-auto">
                             <form id="create-restaurant-form" onSubmit={handleCreateSubmit} className="space-y-6">
@@ -288,11 +288,11 @@ const Restaurants = () => {
             {/* Details Modal */}
             {detailsModalOpen && selectedRestaurant && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-                    <div className="bg-background rounded-xl shadow-xl w-full max-w-4xl p-6 relative max-h-[90vh] overflow-y-auto">
-                        <button onClick={() => setDetailsModalOpen(false)} className="absolute top-4 right-4 text-muted-foreground hover:text-foreground">
+                    <div className="bg-white text-slate-900 rounded-xl shadow-2xl w-full max-w-4xl p-6 relative max-h-[90vh] overflow-y-auto border border-slate-200">
+                        <button onClick={() => setDetailsModalOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 p-2 rounded-full transition-colors">
                             <X size={20} />
                         </button>
-                        <div className="flex items-center gap-4 mb-6">
+                        <div className="flex items-center gap-4 mb-6 border-b pb-4">
                             <div className="h-16 w-16 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 font-bold text-2xl">
                                 {selectedRestaurant.name.charAt(0)}
                             </div>
@@ -311,52 +311,173 @@ const Restaurants = () => {
                                 <Loader2 className="h-8 w-8 animate-spin text-primary" />
                             </div>
                         ) : details ? (
-                            <div className="grid gap-6 md:grid-cols-2">
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold flex items-center gap-2 border-b pb-2">
-                                        <Shield className="h-4 w-4 text-primary" /> Admins
-                                    </h3>
-                                    {details.admins?.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {details.admins.map(admin => (
-                                                <li key={admin.id} className="bg-muted/20 p-3 rounded-lg flex items-center justify-between">
-                                                    <div>
-                                                        <div className="font-medium text-sm">{admin.name}</div>
-                                                        <div className="text-xs text-muted-foreground">{admin.email}</div>
-                                                    </div>
-                                                    <div className="text-xs font-medium px-2 py-0.5 bg-primary/10 text-primary rounded">
-                                                        {admin.role}
-                                                    </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground italic">No admins found.</p>
-                                    )}
+                            <div className="space-y-6">
+                                {/* Navigation Tabs */}
+                                <div className="flex border-b">
+                                    {['overview', 'admins', 'riders', 'users'].map((tab) => (
+                                        <button
+                                            key={tab}
+                                            onClick={() => setActiveTab(tab)}
+                                            className={clsx(
+                                                "px-4 py-2 font-medium text-sm transition-colors border-b-2",
+                                                activeTab === tab
+                                                    ? "border-primary text-primary"
+                                                    : "border-transparent text-muted-foreground hover:text-foreground"
+                                            )}
+                                        >
+                                            {tab.charAt(0).toUpperCase() + tab.slice(1)}
+                                        </button>
+                                    ))}
                                 </div>
 
-                                <div className="space-y-4">
-                                    <h3 className="font-semibold flex items-center gap-2 border-b pb-2">
-                                        <Users className="h-4 w-4 text-primary" /> Riders
-                                    </h3>
-                                    {details.riders?.length > 0 ? (
-                                        <ul className="space-y-3">
-                                            {details.riders.map(rider => (
-                                                <li key={rider.id} className="bg-muted/20 p-3 rounded-lg flex items-center justify-between">
-                                                    <div>
-                                                        <div className="font-medium text-sm">{rider.name}</div>
-                                                        <div className="text-xs text-muted-foreground">{rider.phone}</div>
-                                                    </div>
-                                                    <div className="flex gap-2">
-                                                        <span className={clsx("text-xs font-medium px-2 py-0.5 rounded", rider.is_available ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700")}>
-                                                            {rider.is_available ? 'Online' : 'Offline'}
-                                                        </span>
-                                                    </div>
-                                                </li>
-                                            ))}
-                                        </ul>
-                                    ) : (
-                                        <p className="text-sm text-muted-foreground italic">No riders found.</p>
+                                {/* Tab Contents */}
+                                <div className="min-h-[300px]">
+                                    {/* OVERVIEW TAB */}
+                                    {activeTab === 'overview' && (
+                                        <div className="space-y-6">
+                                            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                                                <div className="bg-muted/30 p-4 rounded-xl border">
+                                                    <div className="text-sm text-muted-foreground mb-1">Total Revenue</div>
+                                                    <div className="text-2xl font-bold">${details.analytics?.totalRevenue || 0}</div>
+                                                </div>
+                                                <div className="bg-muted/30 p-4 rounded-xl border">
+                                                    <div className="text-sm text-muted-foreground mb-1">Total Orders</div>
+                                                    <div className="text-2xl font-bold">{details.analytics?.totalOrders || 0}</div>
+                                                </div>
+                                                <div className="bg-muted/30 p-4 rounded-xl border">
+                                                    <div className="text-sm text-muted-foreground mb-1">Active Customers</div>
+                                                    <div className="text-2xl font-bold">{details.analytics?.customers?.active || 0} <span className="text-xs font-normal text-muted-foreground ml-1">/ {details.analytics?.customers?.total || 0} total</span></div>
+                                                </div>
+                                                <div className="bg-muted/30 p-4 rounded-xl border">
+                                                    <div className="text-sm text-muted-foreground mb-1">Active Riders</div>
+                                                    <div className="text-2xl font-bold">{details.analytics?.riders?.active || 0} <span className="text-xs font-normal text-muted-foreground ml-1">/ {details.analytics?.riders?.total || 0} total</span></div>
+                                                </div>
+                                            </div>
+
+                                            <div className="grid gap-6 md:grid-cols-2">
+                                                <div className="bg-card border rounded-xl p-4">
+                                                    <h3 className="font-semibold mb-3 border-b pb-2">Orders by Status</h3>
+                                                    {details.analytics?.ordersByStatus && Object.keys(details.analytics.ordersByStatus).length > 0 ? (
+                                                        <div className="space-y-2">
+                                                            {Object.entries(details.analytics.ordersByStatus).map(([status, count]) => (
+                                                                <div key={status} className="flex justify-between items-center text-sm">
+                                                                    <span className="capitalize">{status.replace('_', ' ')}</span>
+                                                                    <span className="font-medium bg-muted px-2 py-0.5 rounded text-xs">{count}</span>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-sm text-muted-foreground italic py-4 text-center">No orders yet</div>
+                                                    )}
+                                                </div>
+
+                                                <div className="bg-card border rounded-xl p-4">
+                                                    <h3 className="font-semibold mb-3 border-b pb-2">Top Selling Foods</h3>
+                                                    {details.analytics?.topFoods?.length > 0 ? (
+                                                        <div className="space-y-3">
+                                                            {details.analytics.topFoods.map((food, index) => (
+                                                                <div key={food.id} className="flex items-center gap-3 text-sm">
+                                                                    <div className="h-6 w-6 rounded bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">{index + 1}</div>
+                                                                    <div className="flex-1 truncate font-medium" title={food.name}>{food.name}</div>
+                                                                    <div className="text-muted-foreground text-xs shrink-0">{food.total_sold} sold</div>
+                                                                    <div className="font-bold shrink-0">${parseFloat(food.total_revenue).toFixed(2)}</div>
+                                                                </div>
+                                                            ))}
+                                                        </div>
+                                                    ) : (
+                                                        <div className="text-sm text-muted-foreground italic py-4 text-center">No sales data yet</div>
+                                                    )}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* ADMINS TAB */}
+                                    {activeTab === 'admins' && (
+                                        <div className="space-y-4">
+                                            {details.admins?.length > 0 ? (
+                                                <div className="grid gap-3 sm:grid-cols-2">
+                                                    {details.admins.map(admin => (
+                                                        <div key={admin.id} className="bg-card border p-4 rounded-lg flex items-center justify-between">
+                                                            <div>
+                                                                <div className="font-semibold">{admin.name}</div>
+                                                                <div className="text-sm text-muted-foreground flex items-center gap-1 mt-1">
+                                                                    <Mail size={12} /> {admin.email}
+                                                                </div>
+                                                            </div>
+                                                            <div className="text-xs font-bold px-2 py-1 bg-primary/10 text-primary rounded uppercase tracking-wider">
+                                                                {admin.role}
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-center py-8 text-muted-foreground italic">No admins registered to this restaurant.</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* RIDERS TAB */}
+                                    {activeTab === 'riders' && (
+                                        <div className="space-y-4">
+                                            {details.riders?.length > 0 ? (
+                                                <div className="overflow-x-auto border rounded-lg">
+                                                    <table className="w-full text-sm text-left">
+                                                        <thead className="bg-muted text-muted-foreground">
+                                                            <tr>
+                                                                <th className="px-4 py-3 font-medium">Name</th>
+                                                                <th className="px-4 py-3 font-medium">Contact</th>
+                                                                <th className="px-4 py-3 font-medium">Vehicle</th>
+                                                                <th className="px-4 py-3 font-medium text-right">Status</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody className="divide-y">
+                                                            {details.riders.map(rider => (
+                                                                <tr key={rider.id} className="bg-card">
+                                                                    <td className="px-4 py-3 font-medium">{rider.name}</td>
+                                                                    <td className="px-4 py-3">{rider.phone} <br /><span className="text-xs text-muted-foreground">{rider.email}</span></td>
+                                                                    <td className="px-4 py-3">{rider.vehicle_number || 'N/A'}</td>
+                                                                    <td className="px-4 py-3 text-right">
+                                                                        <span className={clsx(
+                                                                            "inline-flex items-center px-2 py-0.5 rounded text-xs font-medium",
+                                                                            rider.is_active ? "bg-green-100 text-green-800" : "bg-red-100 text-red-800"
+                                                                        )}>
+                                                                            {rider.is_active ? 'Active' : 'Frozen'}
+                                                                        </span>
+                                                                    </td>
+                                                                </tr>
+                                                            ))}
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            ) : (
+                                                <p className="text-center py-8 text-muted-foreground italic">No riders assigned to this restaurant.</p>
+                                            )}
+                                        </div>
+                                    )}
+
+                                    {/* USERS TAB */}
+                                    {activeTab === 'users' && (
+                                        <div className="space-y-4">
+                                            {details.users?.length > 0 ? (
+                                                <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
+                                                    {details.users.map(user => (
+                                                        <div key={user.id} className="bg-card border p-4 rounded-lg flex gap-3">
+                                                            <div className="h-10 w-10 flex-shrink-0 rounded-full bg-secondary text-secondary-foreground flex items-center justify-center font-bold">
+                                                                {user.name.charAt(0).toUpperCase()}
+                                                            </div>
+                                                            <div className="min-w-0">
+                                                                <div className="font-medium text-sm truncate">{user.name}</div>
+                                                                <div className="text-xs text-muted-foreground truncate">{user.email}</div>
+                                                                <div className="text-xs text-muted-foreground truncate mt-0.5">{user.phone}</div>
+                                                            </div>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <p className="text-center py-8 text-muted-foreground italic">No users registered to this restaurant yet.</p>
+                                            )}
+                                        </div>
                                     )}
                                 </div>
                             </div>

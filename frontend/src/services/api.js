@@ -143,6 +143,21 @@ export const superAdmin = {
 
     // Analytics
     getPlatformAnalytics: () => api.get('/api/superadmin/analytics'),
+
+    // Users
+    getAllUsers: () => api.get('/api/superadmin/users'),
+    toggleUserFreeze: (id) => api.put(`/api/superadmin/users/${id}/freeze`),
+    deleteUser: (id) => api.delete(`/api/superadmin/users/${id}`),
+
+    // Riders
+    getAllRiders: () => api.get('/api/superadmin/riders'),
+    toggleRiderFreeze: (id) => api.put(`/api/superadmin/riders/${id}/freeze`),
+    deleteRider: (id) => api.delete(`/api/superadmin/riders/${id}`),
+
+    // App Settings
+    getSettings: () => api.get('/api/settings'),
+    upsertSetting: (data) => api.post('/api/settings', data),
+    deleteSetting: (key) => api.delete(`/api/settings/${key}`),
 };
 
 // User Endpoints

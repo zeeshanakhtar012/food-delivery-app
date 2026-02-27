@@ -18,7 +18,8 @@ import {
     BarChart3,
     Layers,
     Monitor, // [NEW]
-    Calendar // [NEW]
+    Calendar, // [NEW]
+    Activity // [NEW] for Riders
 } from 'lucide-react';
 import clsx from 'clsx';
 

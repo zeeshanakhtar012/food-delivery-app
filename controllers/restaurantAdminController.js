@@ -6,6 +6,7 @@ const { query } = require('../config/db');
 const moment = require('moment');
 const { Parser } = require('json2csv');
 const PDFDocument = require('pdfkit');
+const { v4: uuidv4 } = require('uuid');
 
 // === YOUR REAL MODELS ===
 const Food = require('../models/PostgreSQL/Food');
@@ -46,9 +47,18 @@ exports.login = async (req, res, next) => {
       return errorResponse(res, 'Restaurant is inactive or not found', 403);
     }
 
-    // Generate JWT
+    // Generate unique session token for this device
+    const sessionToken = uuidv4();
+    await Admin.updateSessionToken(admin.id, sessionToken);
+
+    // Generate JWT including the session token
     const token = jwt.sign(
-      { id: admin.id, role: 'restaurant_admin', restaurant_id: admin.restaurant_id },
+      {
+        id: admin.id,
+        role: 'restaurant_admin',
+        restaurant_id: admin.restaurant_id,
+        session_token: sessionToken
+      },
       process.env.JWT_SECRET,
       { expiresIn: '8h' }
     );

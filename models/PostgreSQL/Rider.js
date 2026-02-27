@@ -108,6 +108,26 @@ const Rider = {
     const result = await query('DELETE FROM riders WHERE id = $1 RETURNING id', [id]);
     return result.rows[0];
   },
+
+  // Get all riders (Super Admin)
+  findAll: async () => {
+    const result = await query(
+      `SELECT rid.id, rid.name, rid.email, rid.phone, rid.vehicle_number, rid.restaurant_id, 
+              rid.current_lat, rid.current_lng, rid.is_available, rid.status, 
+              rid.wallet_balance, rid.total_earnings, rid.created_at, rid.is_active, r.name as restaurant_name 
+       FROM riders rid LEFT JOIN restaurants r ON rid.restaurant_id = r.id ORDER BY rid.created_at DESC`
+    );
+    return result.rows;
+  },
+
+  // Freeze/unfreeze rider
+  toggleActive: async (id) => {
+    const result = await query(
+      `UPDATE riders SET is_active = NOT is_active WHERE id = $1 RETURNING id, is_active`,
+      [id]
+    );
+    return result.rows[0];
+  },
 };
 
 module.exports = Rider;

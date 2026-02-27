@@ -25,7 +25,8 @@ const Dashboard = () => {
         totalRestaurants: 0,
         totalUsers: 0,
         totalRevenue: 0,
-        activeRiders: 0
+        activeRiders: 0,
+        restaurants: [] // NEW
     });
     const [loading, setLoading] = useState(true);
 
@@ -33,16 +34,14 @@ const Dashboard = () => {
         const fetchStats = async () => {
             try {
                 const response = await api.get('/api/superadmin/analytics');
-                const data = response.data.analytics || {}; // Adjusted to match generic response structure if needed, or check specific key
-
-                // Super Admin API likely returns { analytics: { total_restaurants: ... } } based on controller
-                // Actually controller says: res.json({ message:..., analytics: ... })
+                const data = response.data.analytics || {};
 
                 setStats({
                     totalRestaurants: data.total_restaurants || 0,
-                    totalUsers: data.total_users || 0, // Ensure field matches API
+                    totalUsers: data.total_users || 0,
                     totalRevenue: data.total_revenue ? `$${parseFloat(data.total_revenue).toFixed(2)}` : '$0.00',
-                    activeRiders: data.active_riders || 0
+                    activeRiders: data.active_riders || 0,
+                    restaurants: data.restaurants || [] // NEW
                 });
             } catch (error) {
                 console.error('Failed to fetch dashboard stats', error);
@@ -50,7 +49,8 @@ const Dashboard = () => {
                     totalRestaurants: 0,
                     totalUsers: 0,
                     totalRevenue: '$0.00',
-                    activeRiders: 0
+                    activeRiders: 0,
+                    restaurants: [] // NEW
                 });
             } finally {
                 setLoading(false);
@@ -110,22 +110,19 @@ const Dashboard = () => {
                 <div className="bg-card p-6 rounded-xl border shadow-sm">
                     <div className="flex items-center justify-between mb-6">
                         <h3 className="text-lg font-semibold">Newest Restaurants</h3>
-                        <button className="text-sm text-primary hover:underline flex items-center">
-                            View All <ArrowUpRight size={14} className="ml-1" />
-                        </button>
                     </div>
                     <div className="space-y-4">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="flex items-center p-3 hover:bg-muted/50 rounded-lg transition-colors border border-transparent hover:border-border/50">
-                                <div className="h-10 w-10 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 font-bold">
-                                    <Utensils size={18} />
+                        {stats.restaurants.slice(0, 5).map((restaurant) => (
+                            <div key={restaurant.id} className="flex items-center p-3 hover:bg-muted/50 rounded-lg transition-colors border border-transparent hover:border-border/50">
+                                <div className="h-10 w-10 bg-orange-100 rounded-lg flex items-center justify-center text-orange-600 font-bold overflow-hidden">
+                                    {restaurant.logo_url ? <img src={restaurant.logo_url} alt="" className="h-full w-full object-cover" /> : <Utensils size={18} />}
                                 </div>
                                 <div className="ml-4 flex-1">
-                                    <p className="font-medium text-sm">Spicy Corner {i}</p>
-                                    <p className="text-xs text-muted-foreground">Joined 2 days ago</p>
+                                    <p className="font-medium text-sm">{restaurant.name}</p>
+                                    <p className="text-xs text-muted-foreground">Joined {new Date(restaurant.created_at).toLocaleDateString()}</p>
                                 </div>
-                                <div className="px-2 py-1 bg-green-100 text-green-700 text-xs rounded-full">
-                                    Active
+                                <div className={`px-2 py-1 text-xs rounded-full ${restaurant.is_active ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
+                                    {restaurant.is_active ? 'Active' : 'Frozen'}
                                 </div>
                             </div>
                         ))}

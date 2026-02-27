@@ -50,6 +50,30 @@ const User = {
   comparePassword: async (candidatePassword, hashedPassword) => {
     return await bcrypt.compare(candidatePassword, hashedPassword);
   },
+
+  // Get all users (Super Admin)
+  findAll: async () => {
+    const result = await query(
+      `SELECT u.id, u.name, u.email, u.phone, u.restaurant_id, u.avatar_url, u.created_at, u.is_active, r.name as restaurant_name 
+       FROM users u LEFT JOIN restaurants r ON u.restaurant_id = r.id ORDER BY u.created_at DESC`
+    );
+    return result.rows;
+  },
+
+  // Freeze/unfreeze user
+  toggleActive: async (id) => {
+    const result = await query(
+      `UPDATE users SET is_active = NOT is_active WHERE id = $1 RETURNING id, is_active`,
+      [id]
+    );
+    return result.rows[0];
+  },
+
+  // Delete user
+  delete: async (id) => {
+    const result = await query('DELETE FROM users WHERE id = $1 RETURNING id', [id]);
+    return result.rows[0];
+  },
 };
 
 module.exports = User;

@@ -12,6 +12,17 @@ const authenticate = async (req, res, next) => {
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
 
+    // Check for Restaurant Admin single-session security
+    if (decoded.role === 'restaurant_admin') {
+      const Admin = require('../models/PostgreSQL/Admin');
+      const admin = await Admin.findById(decoded.id);
+
+      // KICK OUT if the admin no longer exists OR the session token doesn't match the DB
+      if (!admin || admin.session_token !== decoded.session_token) {
+        return res.status(401).json({ message: 'Session expired or logged in from another device. Please log in again.' });
+      }
+    }
+
     // === FIX: Check restaurant_id exists AND is not null ===
     if (decoded.role !== 'super_admin' && decoded.restaurant_id) {
       const restaurant = await Restaurant.findById(decoded.restaurant_id);
@@ -27,7 +38,8 @@ const authenticate = async (req, res, next) => {
     req.user = {
       id: decoded.id,
       role: decoded.role,
-      restaurant_id: decoded.restaurant_id || null
+      restaurant_id: decoded.restaurant_id || null,
+      session_token: decoded.session_token || null
     };
 
     next(); // ← This is called
@@ -45,8 +57,8 @@ const authorize = (...roles) => {
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        message: `Access denied. Required role: ${roles.join(' or ')}` 
+      return res.status(403).json({
+        message: `Access denied. Required role: ${roles.join(' or ')}`
       });
     }
 

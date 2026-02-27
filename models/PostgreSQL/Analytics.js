@@ -119,10 +119,18 @@ const Analytics = {
     );
     const totalRevenue = parseFloat(revenueResult.rows[0].total);
 
+    // Total users across platform
+    const usersResult = await query('SELECT COUNT(*) as count FROM users');
+    const totalUsers = parseInt(usersResult.rows[0].count);
+
+    // Active riders across platform
+    const ridersResult = await query('SELECT COUNT(*) as count FROM riders WHERE is_available = true');
+    const activeRiders = parseInt(ridersResult.rows[0].count);
+
     // Restaurant-wise analytics
     const restaurantsAnalyticsResult = await query(
       `SELECT 
-         r.id, r.name, r.email, r.is_active,
+         r.id, r.name, r.email, r.is_active, r.created_at,
          COUNT(DISTINCT o.id) as total_orders,
          COALESCE(SUM(CASE WHEN o.status = 'delivered' THEN o.total_amount ELSE 0 END), 0) as revenue,
          COUNT(DISTINCT CASE WHEN u.id IS NOT NULL THEN u.id END) as total_customers,
@@ -131,20 +139,23 @@ const Analytics = {
        LEFT JOIN orders o ON r.id = o.restaurant_id
        LEFT JOIN users u ON r.id = u.restaurant_id
        LEFT JOIN riders rid ON r.id = rid.restaurant_id
-       GROUP BY r.id, r.name, r.email, r.is_active
+       GROUP BY r.id, r.name, r.email, r.is_active, r.created_at
        ORDER BY r.created_at DESC`
     );
 
     return {
-      totalRestaurants,
-      activeRestaurants,
-      totalOrders,
-      totalRevenue,
+      total_restaurants: totalRestaurants,
+      active_restaurants: activeRestaurants,
+      total_orders: totalOrders,
+      total_revenue: totalRevenue,
+      total_users: totalUsers,
+      active_riders: activeRiders,
       restaurants: restaurantsAnalyticsResult.rows.map(row => ({
         id: row.id,
         name: row.name,
         email: row.email,
         is_active: row.is_active,
+        created_at: row.created_at,
         total_orders: parseInt(row.total_orders),
         revenue: parseFloat(row.revenue),
         total_customers: parseInt(row.total_customers),

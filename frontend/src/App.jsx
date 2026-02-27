@@ -5,6 +5,8 @@ import Login from './pages/Login';
 import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
 import Restaurants from './pages/SuperAdmin/Restaurants';
 import SuperAdminSettings from './pages/SuperAdmin/Settings';
+import Users from './pages/SuperAdmin/Users';
+import Riders from './pages/SuperAdmin/Riders';
 import RestaurantAdminDashboard from './pages/RestaurantAdmin/Dashboard';
 import Orders from './pages/RestaurantAdmin/Orders';
 import Menu from './pages/RestaurantAdmin/Menu';
@@ -31,7 +33,7 @@ function App() {
       <Route path="/login" element={<Login />} />
 
       {/* Super Admin Routes */}
-      <Route path="/super-admin" element={
+      <Route path="/super-admin/*" element={
         <ProtectedRoute allowedRoles={['super_admin']}>
           <Layout>
             <Routes>
