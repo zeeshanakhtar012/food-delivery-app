@@ -74,6 +74,7 @@ CREATE TABLE IF NOT EXISTS admins (
     password VARCHAR(255) NOT NULL,
     restaurant_id UUID REFERENCES restaurants(id) ON DELETE CASCADE,
     role admin_role NOT NULL DEFAULT 'restaurant_admin',
+    session_token VARCHAR(255),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT restaurant_admin_check CHECK (
         (role = 'super_admin' AND restaurant_id IS NULL) OR
@@ -111,6 +112,7 @@ CREATE TABLE IF NOT EXISTS riders (
     current_lat DECIMAL(10, 8),
     current_lng DECIMAL(11, 8),
     is_available BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT TRUE,
     avatar_url TEXT,
     status rider_status DEFAULT 'offline',
     rating DECIMAL(2,1) DEFAULT 0.0,

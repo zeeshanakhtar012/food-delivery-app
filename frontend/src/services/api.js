@@ -11,13 +11,27 @@ const api = axios.create({
 // Request interceptor to add auth token
 api.interceptors.request.use(
     (config) => {
-        const token = localStorage.getItem('token');
+        let token = null;
+
+        // Intelligent token selection based on endpoint
+        if (config.url.startsWith('/api/superadmin')) {
+            token = localStorage.getItem('token_super_admin');
+            console.log(`[API] Using Super Admin token for: ${config.url}`);
+        } else if (config.url.startsWith('/api/admin')) {
+            token = localStorage.getItem('token_restaurant_admin');
+            console.log(`[API] Using Restaurant Admin token for: ${config.url}`);
+        }
+
+        // Fallback to generic token if role-specific one isn't found
+        if (!token) {
+            token = localStorage.getItem('token');
+        }
+
         if (token) {
             if (token === 'undefined') {
                 console.error('[API] Token in localStorage is string "undefined"!');
             }
             config.headers.Authorization = `Bearer ${token}`;
-            console.log(`[API] Request: ${config.method.toUpperCase()} ${config.url}`, { headers: config.headers });
         } else {
             console.warn(`[API] No token found in localStorage for ${config.url}`);
         }

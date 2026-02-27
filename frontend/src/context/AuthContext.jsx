@@ -9,16 +9,25 @@ export const AuthProvider = ({ children }) => {
 
     useEffect(() => {
         // Check for stored user data on load
-        const storedUser = localStorage.getItem('user');
-        const token = localStorage.getItem('token');
+        // Check both roles to see which one is active
+        const superAdminUser = localStorage.getItem('user_super_admin');
+        const superAdminToken = localStorage.getItem('token_super_admin');
+        const restaurantAdminUser = localStorage.getItem('user_restaurant_admin');
+        const restaurantAdminToken = localStorage.getItem('token_restaurant_admin');
 
-        if (storedUser && token) {
+        // Note: For now, the app state 'user' will hold the LAST logged in or found user.
+        // However, the tokens are now isolated.
+        if (restaurantAdminUser && restaurantAdminToken) {
             try {
-                setUser(JSON.parse(storedUser));
+                setUser(JSON.parse(restaurantAdminUser));
             } catch (error) {
-                console.error('Failed to parse stored user data', error);
-                localStorage.removeItem('user');
-                localStorage.removeItem('token');
+                console.error('Failed to parse restaurant admin data', error);
+            }
+        } else if (superAdminUser && superAdminToken) {
+            try {
+                setUser(JSON.parse(superAdminUser));
+            } catch (error) {
+                console.error('Failed to parse super admin data', error);
             }
         }
         setLoading(false);
@@ -79,8 +88,20 @@ export const AuthProvider = ({ children }) => {
                 userData.restaurant = restaurant;
             }
 
+            // Isolated storage based on role
+            if (role === 'super_admin') {
+                localStorage.setItem('token_super_admin', token);
+                localStorage.setItem('user_super_admin', JSON.stringify(userData));
+            } else {
+                localStorage.setItem('token_restaurant_admin', token);
+                localStorage.setItem('user_restaurant_admin', JSON.stringify(userData));
+            }
+
+            // Set main token/user for backward compatibility if needed, 
+            // but api.js will now prioritize role-based tokens
             localStorage.setItem('token', token);
             localStorage.setItem('user', JSON.stringify(userData));
+
             setUser(userData);
             return userData;
         } catch (error) {
@@ -92,6 +113,10 @@ export const AuthProvider = ({ children }) => {
     const logout = () => {
         localStorage.removeItem('token');
         localStorage.removeItem('user');
+        localStorage.removeItem('token_super_admin');
+        localStorage.removeItem('user_super_admin');
+        localStorage.removeItem('token_restaurant_admin');
+        localStorage.removeItem('user_restaurant_admin');
         setUser(null);
         window.location.assign('/login');
     };
