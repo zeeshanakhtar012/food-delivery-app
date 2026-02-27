@@ -8,7 +8,16 @@ BEGIN
         CREATE TYPE admin_role AS ENUM ('super_admin', 'restaurant_admin');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
-        CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'picked_up', 'delivered', 'cancelled');
+        CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'ready', 'picked_up', 'delivered', 'completed', 'cancelled');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_type') THEN
+        CREATE TYPE order_type AS ENUM ('delivery', 'pickup', 'dine_in', 'takeaway');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method') THEN
+        CREATE TYPE payment_method AS ENUM ('cash', 'card', 'wallet', 'stripe', 'paypal');
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_status') THEN
+        CREATE TYPE payment_status AS ENUM ('pending', 'completed', 'failed', 'refunded');
     END IF;
 END$$;
 
@@ -94,8 +103,17 @@ CREATE TABLE IF NOT EXISTS orders (
     rider_id UUID REFERENCES riders(id) ON DELETE SET NULL,
     table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL,
     reservation_id UUID REFERENCES reservations(id) ON DELETE SET NULL,
+    order_number VARCHAR(50) UNIQUE,
+    order_type order_type DEFAULT 'delivery',
     total_amount DECIMAL(10, 2) NOT NULL,
+    sub_total DECIMAL(10, 2) DEFAULT 0,
+    tax_amount DECIMAL(10, 2) DEFAULT 0,
+    delivery_fee_amount DECIMAL(10, 2) DEFAULT 0,
+    discount_amount DECIMAL(10, 2) DEFAULT 0,
+    coupon_code VARCHAR(50),
     status order_status DEFAULT 'pending',
+    payment_method payment_method DEFAULT 'cash',
+    payment_status payment_status DEFAULT 'pending',
     delivery_lat DECIMAL(10, 8),
     delivery_lng DECIMAL(11, 8),
     customer_name VARCHAR(255),

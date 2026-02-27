@@ -20,7 +20,8 @@ const migrations = [
     'migrate_orders_schema.js',
     'migrate_schema_fix.js',
     'migrate_session_token.js',
-    'migrate_staff_id.js'
+    'migrate_staff_id.js',
+    'fix_enums.js'
 ];
 
 async function runMigrations() {

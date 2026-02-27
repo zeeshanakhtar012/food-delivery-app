@@ -14,9 +14,12 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_status') THEN
         CREATE TYPE order_status AS ENUM ('pending', 'accepted', 'preparing', 'ready', 'picked_up', 'delivered', 'completed', 'cancelled');
     ELSE
-        -- Ensure 'ready' exists in the enum
+        -- Ensure all values exist in the enum
         IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'ready' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'order_status')) THEN
             ALTER TYPE order_status ADD VALUE 'ready';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM pg_enum WHERE enumlabel = 'completed' AND enumtypid = (SELECT oid FROM pg_type WHERE typname = 'order_status')) THEN
+            ALTER TYPE order_status ADD VALUE 'completed';
         END IF;
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'payment_method') THEN
@@ -26,7 +29,7 @@ BEGIN
         CREATE TYPE payment_status AS ENUM ('pending', 'completed', 'failed', 'refunded');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'order_type') THEN
-        CREATE TYPE order_type AS ENUM ('delivery', 'pickup');
+        CREATE TYPE order_type AS ENUM ('delivery', 'pickup', 'dine_in', 'takeaway');
     END IF;
     IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = 'rider_status') THEN
         CREATE TYPE rider_status AS ENUM ('online', 'offline', 'busy');
