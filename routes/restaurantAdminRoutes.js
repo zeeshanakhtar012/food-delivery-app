@@ -83,6 +83,21 @@ router.use(authenticate);
 router.use(authorize('restaurant_admin'));
 router.use(requireRestaurantAccess);
 
+// ! TEMPORARY RIDER DB PATCH - DELETE LATER !
+const { pool } = require('../config/db');
+router.get('/migrate-riders', async (req, res) => {
+  try {
+    await pool.query('ALTER TABLE riders ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT false;');
+    await pool.query('ALTER TABLE riders ADD COLUMN IF NOT EXISTS is_blocked BOOLEAN DEFAULT false;');
+    await pool.query('ALTER TABLE riders ADD COLUMN IF NOT EXISTS blocked_reason TEXT;');
+    await pool.query('ALTER TABLE riders ADD COLUMN IF NOT EXISTS blocked_at TIMESTAMP;');
+    await pool.query('UPDATE riders SET is_active = true WHERE is_active IS NULL;');
+    res.json({ success: true, message: 'Riders table patched successfully!' });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // ---------------------------------------------------------------------
 // FOOD MANAGEMENT
 // ---------------------------------------------------------------------
