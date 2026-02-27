@@ -548,6 +548,7 @@ exports.updateRider = async (req, res, next) => {
     if (req.body.phone) updates.phone = req.body.phone;
     if (req.body.email) updates.email = req.body.email;
     if (req.body.vehicle_type) updates.vehicle_number = req.body.vehicle_type;
+    if (req.body.is_active !== undefined) updates.is_active = req.body.is_active;
 
     // Hash new password if provided
     if (req.body.password) {
