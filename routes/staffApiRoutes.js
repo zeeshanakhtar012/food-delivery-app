@@ -8,7 +8,7 @@ router.post('/auth/login', staffApiController.login);
 
 // All routes below require staff authentication
 router.use(authenticate);
-router.use(authorize('staff'));
+router.use(authorize(['staff', 'rider']));
 // We apply requireRestaurantAccess to ensure req.restaurant_id is maintained perfectly 
 // (or just rely on the token's logic which is checked in the controller)
 router.use(requireRestaurantAccess);

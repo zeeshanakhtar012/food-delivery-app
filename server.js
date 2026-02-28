@@ -166,7 +166,7 @@ io.on('connection', (socket) => {
     if (socket.user.restaurant_id) {
       socket.join(`restaurant:${socket.user.restaurant_id}`);
     }
-  } else if (socket.user.role === 'staff') {
+  } else if (socket.user.role === 'staff' || socket.user.role === 'rider') {
     socket.join(`staff:${socket.user.id}`);
     if (socket.user.restaurant_id) {
       socket.join(`restaurant:${socket.user.restaurant_id}`);

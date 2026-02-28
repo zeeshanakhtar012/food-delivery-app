@@ -594,6 +594,17 @@ exports.updateRider = async (req, res, next) => {
     const updated = await Rider.update(id, updates);
     if (!updated) return errorResponse(res, 'No changes', 400);
 
+    // Check if is_active changed to notify the rider app
+    if (req.body.is_active !== undefined && rider.is_active !== req.body.is_active) {
+      const io = req.app.get('io');
+      if (io) {
+        // We use staff:${id} room because the rider app joins this room consistently
+        io.to(`staff:${id}`).emit('staffStatusUpdate', {
+          is_active: req.body.is_active
+        });
+      }
+    }
+
     await logUpdate(req.user.id, 'restaurant_admin', 'RIDER', id, rider, updated, req);
 
     return successResponse(res, updated, 'Rider updated successfully');

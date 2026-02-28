@@ -3,6 +3,7 @@ const Order = require('../models/PostgreSQL/Order');
 const OrderTracking = require('../models/PostgreSQL/OrderTracking');
 const Restaurant = require('../models/PostgreSQL/Restaurant');
 const jwt = require('jsonwebtoken');
+const { successResponse, errorResponse } = require('../helpers/response');
 
 // Rider Login
 exports.login = async (req, res) => {
@@ -10,30 +11,26 @@ exports.login = async (req, res) => {
     const { email, password, restaurant_id } = req.body;
 
     if (!email || !password || !restaurant_id) {
-      return res.status(400).json({
-        message: 'Email, password, and restaurant_id are required'
-      });
+      return errorResponse(res, 'Email, password, and restaurant_id are required', 400);
     }
 
     // Verify restaurant exists and is active
     const restaurant = await Restaurant.findById(restaurant_id);
     if (!restaurant) {
-      return res.status(404).json({ message: 'Restaurant not found' });
+      return errorResponse(res, 'Restaurant not found', 404);
     }
     if (!restaurant.is_active) {
-      return res.status(403).json({
-        message: 'Restaurant account is frozen. Please contact support.'
-      });
+      return errorResponse(res, 'Restaurant account is frozen. Please contact support.', 403);
     }
 
     const rider = await Rider.findByEmailAndRestaurant(email, restaurant_id);
     if (!rider) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return errorResponse(res, 'Invalid credentials', 401);
     }
 
     const isValidPassword = await Rider.comparePassword(password, rider.password);
     if (!isValidPassword) {
-      return res.status(401).json({ message: 'Invalid credentials' });
+      return errorResponse(res, 'Invalid credentials', 401);
     }
 
     if (!rider.is_active) {
@@ -48,7 +45,7 @@ exports.login = async (req, res) => {
           timestamp: new Date()
         });
       }
-      return res.status(403).json({ message: 'Your account is pending approval or has been frozen by the admin. Please wait for approval.' });
+      return errorResponse(res, 'Your account is pending approval or has been frozen by the admin. Please wait for approval.', 403);
     }
 
     // Generate JWT token
@@ -62,8 +59,7 @@ exports.login = async (req, res) => {
       { expiresIn: '30d' }
     );
 
-    res.json({
-      message: 'Login successful',
+    return successResponse(res, {
       token,
       rider: {
         id: rider.id,
@@ -72,12 +68,13 @@ exports.login = async (req, res) => {
         phone: rider.phone,
         vehicle_number: rider.vehicle_number,
         restaurant_id: rider.restaurant_id,
-        is_available: rider.is_available
+        is_available: rider.is_available,
+        is_active: rider.is_active
       }
-    });
+    }, 'Login successful');
   } catch (error) {
     console.error('Rider login error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
@@ -326,23 +323,19 @@ exports.updateProfile = async (req, res) => {
     }
 
     if (updates.length === 0) {
-      return res.status(400).json({ message: 'No fields to update' });
+      return errorResponse(res, 'No fields to update', 400);
     }
 
     values.push(req.user.id);
     const result = await query(
       `UPDATE riders SET ${updates.join(', ')} WHERE id = $${paramCount} 
-       RETURNING id, name, email, phone, vehicle_number, restaurant_id, avatar_url, created_at`,
+       RETURNING id, name, email, phone, vehicle_number, restaurant_id, avatar_url, is_active, created_at`,
       values
     );
 
-    res.json({
-      message: 'Profile updated successfully',
-      rider: result.rows[0]
-    });
+    return successResponse(res, result.rows[0], 'Profile updated successfully');
   } catch (error) {
-    console.error('Update profile error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
