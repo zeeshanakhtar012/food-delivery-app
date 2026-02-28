@@ -125,6 +125,12 @@ const Food = {
     );
     return result.rows;
   },
+
+  // Delete all foods for a restaurant
+  deleteAllByRestaurantId: async (restaurant_id) => {
+    const result = await query('DELETE FROM foods WHERE restaurant_id = $1 RETURNING *', [restaurant_id]);
+    return result.rows;
+  },
 };
 
 module.exports = Food;

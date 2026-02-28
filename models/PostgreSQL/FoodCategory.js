@@ -88,6 +88,14 @@ const FoodCategory = {
 
     const result = await query('DELETE FROM food_categories WHERE id = $1 RETURNING *', [id]);
     return result.rows[0];
+  },
+
+  // Delete all categories for a restaurant
+  deleteAllByRestaurantId: async (restaurant_id) => {
+    // Note: Due to FK constraints, users should probably delete foods first, 
+    // but we can CASCADE if we want. For now, let's just do it simply.
+    const result = await query('DELETE FROM food_categories WHERE restaurant_id = $1 RETURNING *', [restaurant_id]);
+    return result.rows;
   }
 };
 

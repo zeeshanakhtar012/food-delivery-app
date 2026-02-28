@@ -140,6 +140,23 @@ const Menu = () => {
         }
     };
 
+    const handleDeleteAll = async () => {
+        if (!window.confirm('WARNING: This will permanently delete ALL food items in your menu. This action cannot be undone. Are you sure?')) return;
+        if (!window.confirm('FINAL CONFIRMATION: Are you absolutely sure you want to wipe your entire menu?')) return;
+
+        setLoading(true);
+        try {
+            await restaurantAdmin.deleteAllFoods();
+            setFoods([]);
+            alert('All menu items have been deleted.');
+        } catch (error) {
+            console.error('Failed to delete all foods', error);
+            alert('Failed to delete all items. ' + (error.response?.data?.message || ''));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -149,6 +166,13 @@ const Menu = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <ImportExportPanel onImportComplete={fetchData} />
+                    <button
+                        onClick={() => handleDeleteAll()}
+                        className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg hover:bg-destructive hover:text-white transition-all shadow-sm font-medium"
+                    >
+                        <Trash2 size={18} />
+                        Delete All
+                    </button>
                     <button
                         onClick={() => openModal()}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"

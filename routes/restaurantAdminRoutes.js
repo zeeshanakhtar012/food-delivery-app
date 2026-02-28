@@ -97,6 +97,7 @@ router.put(
 );
 
 router.delete('/foods/:id', restaurantAdminController.deleteFood);
+router.delete('/foods/all', restaurantAdminController.deleteAllFoods); // [NEW] Bulk delete
 
 // ---------------------------------------------------------------------
 // ORDER MANAGEMENT
@@ -126,6 +127,7 @@ router.delete('/riders/:id', restaurantAdminController.deleteRider);
 router.put('/riders/:id/block', restaurantAdminController.blockRider);
 router.put('/riders/:id/unblock', restaurantAdminController.unblockRider);
 router.get('/riders/performance', restaurantAdminController.getRiderPerformance);
+router.get('/requests/pending', restaurantAdminController.getPendingLoginRequests); // [NEW] Login Requests
 
 // ---------------------------------------------------------------------
 // RESERVATIONS

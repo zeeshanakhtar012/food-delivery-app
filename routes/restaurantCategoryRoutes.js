@@ -32,6 +32,7 @@ router.put(
     uploadCategory.single('image'),
     restaurantCategoryController.updateCategory
 );
+router.delete('/all', restaurantCategoryController.deleteAllCategories); // [NEW] Bulk delete
 router.delete('/:id', restaurantCategoryController.deleteCategory);
 
 module.exports = router;

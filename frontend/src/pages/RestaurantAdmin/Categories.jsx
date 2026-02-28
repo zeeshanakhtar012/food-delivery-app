@@ -120,13 +120,10 @@ const Categories = () => {
         if (!force && !window.confirm('Are you sure you want to delete this category?')) return;
         try {
             await restaurantAdmin.deleteCategory(id, force);
-            fetchCategories(); // Fetch to ensure state is synchronized if foods were deleted
+            fetchCategories();
         } catch (error) {
             console.error('Failed to delete category', error);
-            const errorMessage = error.response?.data?.message ||
-                error.response?.data?.error?.message ||
-                error.message ||
-                'Unknown error';
+            const errorMessage = error.response?.data?.message || error.message || 'Unknown error';
 
             if (errorMessage.includes('Cannot delete category with existing foods')) {
                 if (window.confirm('This category has existing foods. Deleting it will also delete all associated foods. Are you sure you want to proceed?')) {
@@ -139,6 +136,23 @@ const Categories = () => {
         }
     };
 
+    const handleDeleteAll = async () => {
+        if (!window.confirm('WARNING: This will permanently delete ALL categories. Associated foods may also be deleted depending on database constraints. This action cannot be undone. Are you sure?')) return;
+        if (!window.confirm('FINAL CONFIRMATION: Are you absolutely sure you want to delete ALL categories?')) return;
+
+        setLoading(true);
+        try {
+            await restaurantAdmin.deleteAllCategories();
+            setCategories([]);
+            alert('All categories have been deleted.');
+        } catch (error) {
+            console.error('Failed to delete all categories', error);
+            alert('Failed to delete all categories. ' + (error.response?.data?.message || ''));
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <div className="space-y-6">
             <div className="flex justify-between items-center">
@@ -148,6 +162,13 @@ const Categories = () => {
                 </div>
                 <div className="flex items-center gap-3">
                     <ImportExportPanel onImportComplete={fetchCategories} />
+                    <button
+                        onClick={() => handleDeleteAll()}
+                        className="flex items-center gap-2 px-4 py-2 bg-destructive/10 text-destructive border border-destructive/20 rounded-lg hover:bg-destructive hover:text-white transition-all shadow-sm font-medium"
+                    >
+                        <Trash2 size={18} />
+                        Delete All
+                    </button>
                     <button
                         onClick={() => openModal()}
                         className="flex items-center gap-2 px-4 py-2 bg-primary text-primary-foreground rounded-lg hover:bg-primary/90 transition-colors shadow-sm"
@@ -178,7 +199,7 @@ const Categories = () => {
                         <tbody className="divide-y">
                             {categories.length === 0 ? (
                                 <tr>
-                                    <td colSpan="5" className="py-8 text-center text-muted-foreground">
+                                    <td colSpan="6" className="py-8 text-center text-muted-foreground">
                                         No categories found. Create one to get started.
                                     </td>
                                 </tr>
@@ -232,7 +253,6 @@ const Categories = () => {
                 </div>
             )}
 
-            {/* Modal */}
             {isModalOpen && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
                     <div className="bg-white text-black rounded-xl shadow-xl w-full max-w-md overflow-hidden flex flex-col">

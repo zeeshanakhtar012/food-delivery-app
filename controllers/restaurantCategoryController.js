@@ -147,3 +147,21 @@ exports.deleteCategory = async (req, res, next) => {
   }
 };
 
+exports.deleteAllCategories = async (req, res, next) => {
+  try {
+    const restaurantId = req.user.restaurant_id;
+    const userId = req.user.id;
+
+    // Hard delete all categories for this restaurant
+    // Note: If foods exist and aren't cascaded, this will fail. 
+    // The model uses a simple DELETE.
+    const deletedItems = await FoodCategory.deleteAllByRestaurantId(restaurantId);
+
+    await logDelete(userId, 'restaurant_admin', 'FOOD_CATEGORY_BULK', 'ALL', { count: deletedItems.length }, req);
+
+    return successResponse(res, { count: deletedItems.length }, `Successfully deleted all ${deletedItems.length} categories`);
+  } catch (error) {
+    next(error);
+  }
+};
+

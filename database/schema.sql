@@ -22,7 +22,7 @@ BEGIN
 END$$;
 
 -- Create restaurants table
-CREATE TABLE IF NOT EXISTS restaurants (
+CREATE TABLE IF NOT EXISTS restaurants ( 
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(255) NOT NULL,
     email VARCHAR(255) UNIQUE NOT NULL,
@@ -82,16 +82,60 @@ CREATE TABLE IF NOT EXISTS riders (
     UNIQUE(email, restaurant_id)
 );
 
--- Create foods table
-CREATE TABLE IF NOT EXISTS foods (
+-- Create food_categories table
+CREATE TABLE IF NOT EXISTS food_categories (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
     name VARCHAR(255) NOT NULL,
     description TEXT,
+    image_url TEXT,
+    sort_order INTEGER DEFAULT 0,
+    is_active BOOLEAN DEFAULT TRUE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create foods table
+CREATE TABLE IF NOT EXISTS foods (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    category_id UUID REFERENCES food_categories(id) ON DELETE SET NULL,
+    name VARCHAR(255) NOT NULL,
+    description TEXT,
     price DECIMAL(10, 2) NOT NULL,
     image_url TEXT,
-    category VARCHAR(100),
+    preparation_time INTEGER DEFAULT 15,
     is_available BOOLEAN DEFAULT TRUE,
+    stock_quantity INTEGER DEFAULT 0,
+    is_unlimited BOOLEAN DEFAULT TRUE,
+    is_featured BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Create restaurant_tables table
+CREATE TABLE IF NOT EXISTS restaurant_tables (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    table_number VARCHAR(50) NOT NULL,
+    capacity INTEGER DEFAULT 4,
+    status VARCHAR(50) DEFAULT 'available',
+    qr_code_url TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(restaurant_id, table_number)
+);
+
+-- Create reservations table
+CREATE TABLE IF NOT EXISTS reservations (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    restaurant_id UUID NOT NULL REFERENCES restaurants(id) ON DELETE CASCADE,
+    user_id UUID REFERENCES users(id) ON DELETE SET NULL,
+    table_id UUID REFERENCES restaurant_tables(id) ON DELETE SET NULL,
+    customer_name VARCHAR(255) NOT NULL,
+    customer_phone VARCHAR(50) NOT NULL,
+    guest_count INTEGER NOT NULL DEFAULT 1,
+    reservation_time TIMESTAMP NOT NULL,
+    status VARCHAR(50) DEFAULT 'pending',
+    special_requests TEXT,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
@@ -159,4 +203,7 @@ CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_order_items_order_id ON order_items(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_tracking_order_id ON order_tracking(order_id);
 CREATE INDEX IF NOT EXISTS idx_order_tracking_rider_id ON order_tracking(rider_id);
+CREATE INDEX IF NOT EXISTS idx_reservations_restaurant_id ON reservations(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_food_categories_restaurant_id ON food_categories(restaurant_id);
+CREATE INDEX IF NOT EXISTS idx_restaurant_tables_restaurant_id ON restaurant_tables(restaurant_id);
 

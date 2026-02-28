@@ -11,7 +11,7 @@ import clsx from 'clsx';
 import { useSocket } from '../../context/SocketContext'; // Assuming socket context exists
 
 const Staff = () => {
-    const [activeTab, setActiveTab] = useState('staff'); // 'staff', 'riders', 'performance'
+    const [activeTab, setActiveTab] = useState('staff'); // 'staff', 'riders', 'requests', 'performance'
     const [riders, setRiders] = useState([]);
     const [staffList, setStaffList] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -33,43 +33,35 @@ const Staff = () => {
     const [performanceData, setPerformanceData] = useState([]);
     const [performanceLoading, setPerformanceLoading] = useState(false);
 
-    // Staff Requests State
-    const [staffRequests, setStaffRequests] = useState([]);
-
-    // Rider Requests State
-    const [riderRequests, setRiderRequests] = useState([]);
+    // Login Requests State (Persistent from DB)
+    const [pendingRequests, setPendingRequests] = useState([]);
 
     const socket = useSocket();
 
     useEffect(() => {
         if (!socket) return;
 
-        socket.on('staffLoginRequest', (requestData) => {
-            setStaffRequests(prev => {
-                // Check if request already exists for this staff
-                const exists = prev.find(req => req.staff_id === requestData.staff_id);
-                if (exists) return prev;
-                return [requestData, ...prev];
-            });
-            // Show alert or toast here if needed
-            alert(`New login request from Staff: ${requestData.name}`);
+        // Auto-refresh requests if a new one arrives via socket
+        socket.on('staffLoginRequest', () => {
+            if (activeTab === 'requests') fetchRequests();
+            else {
+                // Just a subtle notification or we can ignore since user wants manual check
+                console.log('New staff login request received');
+            }
         });
 
-        socket.on('riderLoginRequest', (requestData) => {
-            setRiderRequests(prev => {
-                // Check if request already exists for this rider
-                const exists = prev.find(req => req.rider_id === requestData.rider_id);
-                if (exists) return prev;
-                return [requestData, ...prev];
-            });
-            alert(`New login request from Rider: ${requestData.name}`);
+        socket.on('riderLoginRequest', () => {
+            if (activeTab === 'requests') fetchRequests();
+            else {
+                console.log('New rider login request received');
+            }
         });
 
         return () => {
             socket.off('staffLoginRequest');
             socket.off('riderLoginRequest');
         };
-    }, [socket]);
+    }, [socket, activeTab]);
 
     const fetchRiders = async () => {
         setLoading(true);
@@ -95,10 +87,22 @@ const Staff = () => {
         }
     };
 
+    const fetchRequests = async () => {
+        setLoading(true);
+        try {
+            const response = await restaurantAdmin.getPendingLoginRequests();
+            setPendingRequests(response.data.data || []);
+        } catch (error) {
+            console.error('Failed to fetch login requests', error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const fetchPerformance = async () => {
         setPerformanceLoading(true);
         try {
-            const response = await restaurantAdmin.getRiderPerformance(); // Add date params if needed
+            const response = await restaurantAdmin.getRiderPerformance();
             setPerformanceData(response.data.data || []);
         } catch (error) {
             console.error('Failed to fetch performance', error);
@@ -110,6 +114,7 @@ const Staff = () => {
     useEffect(() => {
         if (activeTab === 'riders') fetchRiders();
         if (activeTab === 'staff') fetchStaff();
+        if (activeTab === 'requests') fetchRequests();
     }, [activeTab]);
 
     useEffect(() => {
@@ -236,34 +241,6 @@ const Staff = () => {
         }
     };
 
-    const handleApproveStaff = async (staffId) => {
-        try {
-            await restaurantAdmin.updateStaff(staffId, { is_active: true });
-            setStaffRequests(prev => prev.filter(req => req.staff_id !== staffId));
-            fetchStaff();
-            alert('Staff login approved successfully.');
-        } catch (error) {
-            console.error('Error approving staff:', error);
-            alert('Failed to approve staff login');
-        }
-    };
-
-    const handleRejectStaff = (staffId) => {
-        setStaffRequests(prev => prev.filter(req => req.staff_id !== staffId));
-    };
-
-    const handleApproveRider = async (riderId) => {
-        try {
-            await restaurantAdmin.updateRider(riderId, { is_active: true });
-            setRiderRequests(prev => prev.filter(req => req.rider_id !== riderId));
-            fetchRiders();
-            alert('Rider login approved successfully.');
-        } catch (error) {
-            console.error('Error approving rider:', error);
-            alert('Failed to approve rider login');
-        }
-    };
-
     const toggleRiderActiveStatus = async (riderId, currentStatus) => {
         try {
             await restaurantAdmin.updateRider(riderId, { is_active: !currentStatus });
@@ -274,8 +251,31 @@ const Staff = () => {
         }
     };
 
-    const handleRejectRider = (riderId) => {
-        setRiderRequests(prev => prev.filter(req => req.rider_id !== riderId));
+    const handleApproveRequest = async (id, type) => {
+        try {
+            if (type === 'rider') {
+                await restaurantAdmin.updateRider(id, { is_active: true });
+            } else {
+                await restaurantAdmin.updateStaff(id, { is_active: true });
+            }
+            setPendingRequests(prev => prev.filter(req => req.id !== id));
+            alert(`${type.charAt(0).toUpperCase() + type.slice(1)} login approved successfully.`);
+
+            // Refresh main lists if needed
+            if (type === 'rider') fetchRiders();
+            else fetchStaff();
+        } catch (error) {
+            console.error(`Error approving ${type}:`, error);
+            alert(`Failed to approve ${type} login`);
+        }
+    };
+
+    const handleRejectRequest = (id) => {
+        // Since these are technical "requests" (just inactive users trying to login), 
+        // "Reject" or "Dismiss" just hides it from the list for now.
+        // If we want to delete them, we'd call delete endpoint.
+        // For now, let's just alert that they should be deleted via main tab if unwanted.
+        setPendingRequests(prev => prev.filter(req => req.id !== id));
     };
 
     const filteredRiders = riders.filter(r =>
@@ -295,7 +295,7 @@ const Staff = () => {
                     <h1 className="text-3xl font-bold tracking-tight">Staff & Riders</h1>
                     <p className="text-muted-foreground">Manage your delivery fleet and performance.</p>
                 </div>
-                {!createdRider && (
+                {activeTab !== 'performance' && activeTab !== 'requests' && !createdRider && (
                     <button
                         onClick={() => {
                             setFormData({ name: '', phone: '', email: '', vehicle_type: 'bike', password: '' });
@@ -310,11 +310,11 @@ const Staff = () => {
             </div>
 
             {/* Tabs */}
-            <div className="flex gap-4 border-b">
+            <div className="flex gap-4 border-b overflow-x-auto">
                 <button
                     onClick={() => setActiveTab('staff')}
                     className={clsx(
-                        "pb-3 text-sm font-medium transition-colors border-b-2",
+                        "pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap",
                         activeTab === 'staff'
                             ? "border-primary text-primary"
                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -325,7 +325,7 @@ const Staff = () => {
                 <button
                     onClick={() => setActiveTab('riders')}
                     className={clsx(
-                        "pb-3 text-sm font-medium transition-colors border-b-2",
+                        "pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap",
                         activeTab === 'riders'
                             ? "border-primary text-primary"
                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -334,9 +334,25 @@ const Staff = () => {
                     Delivery Riders
                 </button>
                 <button
+                    onClick={() => setActiveTab('requests')}
+                    className={clsx(
+                        "pb-3 text-sm font-medium transition-colors border-b-2 flex items-center gap-2 whitespace-nowrap",
+                        activeTab === 'requests'
+                            ? "border-primary text-primary"
+                            : "border-transparent text-muted-foreground hover:text-foreground"
+                    )}
+                >
+                    Login Requests
+                    {pendingRequests.length > 0 && (
+                        <span className="bg-orange-500 text-white text-[10px] px-1.5 py-0.5 rounded-full">
+                            {pendingRequests.length}
+                        </span>
+                    )}
+                </button>
+                <button
                     onClick={() => setActiveTab('performance')}
                     className={clsx(
-                        "pb-3 text-sm font-medium transition-colors border-b-2",
+                        "pb-3 text-sm font-medium transition-colors border-b-2 whitespace-nowrap",
                         activeTab === 'performance'
                             ? "border-primary text-primary"
                             : "border-transparent text-muted-foreground hover:text-foreground"
@@ -346,74 +362,73 @@ const Staff = () => {
                 </button>
             </div>
 
-            {/* Login Requests Section */}
-            {activeTab === 'staff' && staffRequests.length > 0 && (
-                <div className="mb-8">
-                    <h3 className="text-lg font-bold text-orange-600 mb-4 flex items-center gap-2">
-                        <Users className="h-5 w-5" /> Pending Login Requests
-                    </h3>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {staffRequests.map(request => (
-                            <div key={request.staff_id} className="bg-orange-50 rounded-xl border border-orange-200 shadow-sm p-5 flex flex-col gap-3">
-                                <div>
-                                    <h4 className="font-bold text-lg text-orange-900">{request.name}</h4>
-                                    <p className="text-sm text-orange-700">{request.email}</p>
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 mt-1 block">{request.role}</span>
-                                </div>
-                                <div className="mt-2 pt-3 border-t border-orange-200 flex gap-2">
-                                    <button
-                                        onClick={() => handleApproveStaff(request.staff_id)}
-                                        className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors"
-                                    >
-                                        Approve
-                                    </button>
-                                    <button
-                                        onClick={() => handleRejectStaff(request.staff_id)}
-                                        className="flex-1 px-3 py-2 bg-white text-orange-700 border border-orange-300 rounded text-sm font-medium hover:bg-orange-100 transition-colors"
-                                    >
-                                        Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
+            {/* Content Section */}
+            {activeTab === 'requests' ? (
+                <div className="space-y-6">
+                    <div className="flex items-center justify-between">
+                        <h3 className="text-lg font-bold text-orange-600 flex items-center gap-2">
+                            <Clock className="h-5 w-5" /> Pending Approval
+                        </h3>
+                        <button
+                            onClick={fetchRequests}
+                            className="text-xs text-primary hover:underline flex items-center gap-1"
+                        >
+                            <TrendingUp className="h-3 w-3 rotate-90" /> Refresh
+                        </button>
                     </div>
-                </div>
-            )}
 
-            {activeTab === 'riders' && riderRequests.length > 0 && (
-                <div className="mb-8">
-                    <h3 className="text-lg font-bold text-orange-600 mb-4 flex items-center gap-2">
-                        <Truck className="h-5 w-5" /> Pending Rider Logins
-                    </h3>
-                    <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                        {riderRequests.map(request => (
-                            <div key={request.rider_id} className="bg-orange-50 rounded-xl border border-orange-200 shadow-sm p-5 flex flex-col gap-3">
-                                <div>
-                                    <h4 className="font-bold text-lg text-orange-900">{request.name}</h4>
-                                    <p className="text-sm text-orange-700">{request.email}</p>
-                                    <span className="text-xs font-semibold uppercase tracking-wider text-orange-600 mt-1 block">{request.vehicle_number || 'N/A'}</span>
+                    {pendingRequests.length === 0 ? (
+                        <div className="text-center py-20 bg-card rounded-xl border border-dashed">
+                            <Users className="mx-auto h-12 w-12 text-muted-foreground opacity-30 mb-3" />
+                            <p className="text-muted-foreground">No pending login requests at the moment.</p>
+                        </div>
+                    ) : (
+                        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+                            {pendingRequests.map(request => (
+                                <div key={request.id} className="bg-orange-50 rounded-xl border border-orange-200 shadow-sm p-5 flex flex-col gap-3">
+                                    <div className="flex justify-between items-start">
+                                        <div>
+                                            <h4 className="font-bold text-lg text-orange-900">{request.name}</h4>
+                                            <p className="text-sm text-orange-700">{request.email || request.phone}</p>
+                                        </div>
+                                        <span className={clsx(
+                                            "text-[10px] font-bold uppercase px-2 py-0.5 rounded-full border",
+                                            request.type === 'rider' ? "bg-blue-100 text-blue-700 border-blue-200" : "bg-purple-100 text-purple-700 border-purple-200"
+                                        )}>
+                                            {request.type === 'rider' ? 'Rider' : 'Waiter'}
+                                        </span>
+                                    </div>
+                                    <div className="text-xs text-orange-600 bg-orange-100/50 p-2 rounded">
+                                        {request.type === 'rider' ? (
+                                            <div className="flex items-center gap-1">
+                                                <Truck size={12} /> {request.vehicle_number || 'No Vehicle Info'}
+                                            </div>
+                                        ) : (
+                                            <div className="flex items-center gap-1">
+                                                <Users size={12} /> {request.vehicle_number || 'Staff Member'}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="mt-2 pt-3 border-t border-orange-200 flex gap-2">
+                                        <button
+                                            onClick={() => handleApproveRequest(request.id, request.type)}
+                                            className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors shadow-sm"
+                                        >
+                                            Approve
+                                        </button>
+                                        <button
+                                            onClick={() => handleRejectRequest(request.id)}
+                                            className="flex-1 px-3 py-2 bg-white text-orange-700 border border-orange-300 rounded text-sm font-medium hover:bg-orange-100 transition-colors"
+                                        >
+                                            Dismiss
+                                        </button>
+                                    </div>
                                 </div>
-                                <div className="mt-2 pt-3 border-t border-orange-200 flex gap-2">
-                                    <button
-                                        onClick={() => handleApproveRider(request.rider_id)}
-                                        className="flex-1 px-3 py-2 bg-green-500 text-white rounded text-sm font-medium hover:bg-green-600 transition-colors"
-                                    >
-                                        Approve
-                                    </button>
-                                    <button
-                                        onClick={() => handleRejectRider(request.rider_id)}
-                                        className="flex-1 px-3 py-2 bg-white text-orange-700 border border-orange-300 rounded text-sm font-medium hover:bg-orange-100 transition-colors"
-                                    >
-                                        Dismiss
-                                    </button>
-                                </div>
-                            </div>
-                        ))}
-                    </div>
+                            ))}
+                        </div>
+                    )}
                 </div>
-            )}
-
-            {activeTab === 'riders' || activeTab === 'staff' ? (
+            ) : (activeTab === 'riders' || activeTab === 'staff') ? (
                 <>
                     <div className="relative max-w-md">
                         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground h-4 w-4" />

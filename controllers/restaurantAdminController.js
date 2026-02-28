@@ -248,9 +248,29 @@ exports.deleteFood = async (req, res, next) => {
       return errorResponse(res, 'Food not found', 404);
     }
 
-    await Food.softDelete(id);
+    // Switched to HARD DELETE as per user request to ensure items don't reappear
+    await Food.delete(id);
     await logDelete(userId, 'restaurant_admin', 'FOOD', id, food, req);
-    return successResponse(res, null, 'Food deleted');
+    return successResponse(res, null, 'Food deleted permanently');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.deleteAllFoods = async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+    const userId = req.user?.id;
+
+    if (!restaurantId || !userId) {
+      return errorResponse(res, 'Authentication error: Missing restaurant or user info', 401);
+    }
+
+    const deletedItems = await Food.deleteAllByRestaurantId(restaurantId);
+
+    await logDelete(userId, 'restaurant_admin', 'FOOD_BULK', 'ALL', { count: deletedItems.length }, req);
+
+    return successResponse(res, { count: deletedItems.length }, `Successfully deleted all ${deletedItems.length} items`);
   } catch (error) {
     next(error);
   }
@@ -600,6 +620,41 @@ exports.deleteRider = async (req, res, next) => {
     await logDelete(req.user.id, 'restaurant_admin', 'RIDER', id, rider, req);
 
     return successResponse(res, null, 'Rider deleted successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+
+// ============== LOGIN REQUESTS ==============
+exports.getPendingLoginRequests = async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+    if (!restaurantId) {
+      return errorResponse(res, 'Authentication error: Missing restaurant info', 401);
+    }
+
+    // Fetch pending riders (is_active = false)
+    const pendingRiders = await query(
+      `SELECT id, name, email, phone, vehicle_number, 'rider' as type, created_at 
+       FROM riders WHERE restaurant_id = $1 AND is_active = false AND is_blocked = false 
+       ORDER BY created_at DESC`,
+      [restaurantId]
+    );
+
+    // Fetch pending staff (is_active = false)
+    const pendingStaff = await query(
+      `SELECT id, name, email, phone, role as vehicle_number, 'staff' as type, created_at 
+       FROM restaurant_staff WHERE restaurant_id = $1 AND is_active = false AND is_blocked = false 
+       ORDER BY created_at DESC`,
+      [restaurantId]
+    );
+
+    // Combine and sort by date
+    const allRequests = [...pendingRiders.rows, ...pendingStaff.rows].sort((a, b) =>
+      new Date(b.created_at) - new Date(a.created_at)
+    );
+
+    return successResponse(res, allRequests, 'Pending login requests retrieved');
   } catch (error) {
     next(error);
   }

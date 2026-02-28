@@ -230,6 +230,7 @@ CREATE TABLE IF NOT EXISTS reservations (
     reservation_time TIMESTAMP NOT NULL,
     status VARCHAR(50) DEFAULT 'pending', -- pending, confirmed, cancelled, seated, completed
     special_requests TEXT,
+    notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
