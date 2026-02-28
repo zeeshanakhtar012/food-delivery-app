@@ -325,6 +325,16 @@ exports.updateOrderStatus = async (req, res, next) => {
     const io = req.app.get('io');
     if (io) {
       io.to(`restaurant:${restaurantId}`).emit('orderStatusUpdated', { id, status, rider_id: rider_id || null });
+
+      // Notify the assigned rider directly so their app can refresh immediately
+      if (rider_id) {
+        const assignedOrder = await Order.findById(id);
+        io.to(`staff:${rider_id}`).emit('orderAssignedToRider', {
+          order_id: id,
+          status,
+          order: assignedOrder
+        });
+      }
     }
 
     await logUpdate(userId, 'restaurant_admin', 'ORDER', id, { status: oldStatus }, { status, rider_id }, req);

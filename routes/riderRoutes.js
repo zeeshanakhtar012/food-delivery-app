@@ -3,6 +3,12 @@ const router = express.Router();
 const riderController = require('../controllers/riderController');
 const { authenticate, authorize, requireRestaurantAccess } = require('../middleware/authMiddleware');
 
+// Request logging for rider APIs
+router.use((req, res, next) => {
+    console.log(`[RIDER API] ${req.method} ${req.originalUrl} - Body:`, JSON.stringify(req.body));
+    next();
+});
+
 // Public route
 router.post('/login', riderController.login);
 
@@ -10,6 +16,9 @@ router.post('/login', riderController.login);
 router.use(authenticate);
 router.use(authorize('rider'));
 router.use(requireRestaurantAccess);
+
+// Check exact status (GET)
+router.get('/status', riderController.getStatus);
 
 // Order management
 router.get('/orders/available', riderController.getAvailableOrders); // [NEW]

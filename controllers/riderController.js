@@ -69,7 +69,8 @@ exports.login = async (req, res) => {
         vehicle_number: rider.vehicle_number,
         restaurant_id: rider.restaurant_id,
         is_available: rider.is_available,
-        is_active: rider.is_active
+        is_active: rider.is_active,
+        role: 'rider'
       }
     }, 'Login successful');
   } catch (error) {
@@ -104,13 +105,9 @@ exports.getAvailableOrders = async (req, res) => {
     // Fetch items for each order (optional, but good for rider to see size)
     // skipping distinct items fetch for speed, or can implement if needed.
 
-    res.json({
-      message: 'Available orders retrieved successfully',
-      orders: result.rows
-    });
+    return successResponse(res, result.rows, 'Available orders retrieved successfully');
   } catch (error) {
-    console.error('Get available orders error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
@@ -119,13 +116,9 @@ exports.getAssignedOrders = async (req, res) => {
   try {
     const orders = await Order.findByRiderId(req.user.id);
 
-    res.json({
-      message: 'Assigned orders retrieved successfully',
-      orders
-    });
+    return successResponse(res, orders, 'Assigned orders retrieved successfully');
   } catch (error) {
-    console.error('Get assigned orders error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
@@ -136,14 +129,12 @@ exports.updateOrderStatus = async (req, res) => {
     const { status } = req.body;
 
     if (!status) {
-      return res.status(400).json({ message: 'Status is required' });
+      return errorResponse(res, 'Status is required', 400);
     }
 
     const validStatuses = ['accepted', 'preparing', 'picked_up', 'delivered'];
     if (!validStatuses.includes(status)) {
-      return res.status(400).json({
-        message: `Invalid status. Must be one of: ${validStatuses.join(', ')}`
-      });
+      return errorResponse(res, `Invalid status. Must be one of: ${validStatuses.join(', ')}`, 400);
     }
 
     const order = await Order.findById(id);
@@ -160,20 +151,14 @@ exports.updateOrderStatus = async (req, res) => {
 
     // Verify order belongs to rider's restaurant
     if (order.restaurant_id !== req.user.restaurant_id) {
-      return res.status(403).json({
-        message: 'Access denied: Order does not belong to your restaurant'
-      });
+      return errorResponse(res, 'Access denied: Order does not belong to your restaurant', 403);
     }
 
     const updatedOrder = await Order.updateStatus(id, status);
 
-    res.json({
-      message: 'Order status updated successfully',
-      order: updatedOrder
-    });
+    return successResponse(res, updatedOrder, 'Order status updated successfully');
   } catch (error) {
-    console.error('Update order status error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
@@ -184,9 +169,7 @@ exports.sendLocation = async (req, res) => {
     const { lat, lng } = req.body;
 
     if (!lat || !lng) {
-      return res.status(400).json({
-        message: 'Latitude and longitude are required'
-      });
+      return errorResponse(res, 'Latitude and longitude are required', 400);
     }
 
     const order = await Order.findById(id);
@@ -243,19 +226,15 @@ exports.sendLocation = async (req, res) => {
       });
     }
 
-    res.json({
-      message: 'Location updated successfully',
-      tracking: {
-        id: tracking.id,
-        order_id: tracking.order_id,
-        current_lat: tracking.current_lat,
-        current_lng: tracking.current_lng,
-        timestamp: tracking.timestamp
-      }
-    });
+    return successResponse(res, {
+      id: tracking.id,
+      order_id: tracking.order_id,
+      current_lat: tracking.current_lat,
+      current_lng: tracking.current_lng,
+      timestamp: tracking.timestamp
+    }, 'Location updated successfully');
   } catch (error) {
-    console.error('Send location error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
@@ -286,12 +265,32 @@ exports.getProfile = async (req, res) => {
         total_deliveries: rider.total_deliveries,
         total_earnings: rider.total_earnings,
         wallet_balance: rider.wallet_balance,
-        created_at: rider.created_at
+        created_at: rider.created_at,
+        role: 'rider'
       }
     });
   } catch (error) {
     console.error('Get profile error:', error);
     res.status(500).json({ message: 'Server error', error: error.message });
+  }
+};
+
+// Check status (GET)
+exports.getStatus = async (req, res) => {
+  try {
+    const rider = await Rider.findById(req.user.id);
+    if (!rider) {
+      return errorResponse(res, 'Rider not found', 404);
+    }
+    return successResponse(res, {
+      id: rider.id,
+      is_active: rider.is_active,
+      status: rider.status,
+      is_available: rider.is_available,
+      role: 'rider'
+    }, 'Status retrieved');
+  } catch (error) {
+    next(error);
   }
 };
 
@@ -333,7 +332,7 @@ exports.updateProfile = async (req, res) => {
       values
     );
 
-    return successResponse(res, result.rows[0], 'Profile updated successfully');
+    return successResponse(res, { ...result.rows[0], role: 'rider' }, 'Profile updated successfully');
   } catch (error) {
     next(error);
   }
@@ -352,7 +351,7 @@ exports.toggleAvailability = async (req, res) => {
 
     res.json({
       message: `Rider ${is_available ? 'marked as available' : 'marked as unavailable'}`,
-      rider: updated
+      rider: { ...updated, role: 'rider' }
     });
   } catch (error) {
     console.error('Toggle availability error:', error);
@@ -367,9 +366,7 @@ exports.updateStatus = async (req, res) => {
 
     const validStatuses = ['online', 'offline', 'busy'];
     if (!status || !validStatuses.includes(status)) {
-      return res.status(400).json({
-        message: `Status is required and must be one of: ${validStatuses.join(', ')}`
-      });
+      return errorResponse(res, `Status is required and must be one of: ${validStatuses.join(', ')}`, 400);
     }
 
     const { query } = require('../config/db');
@@ -379,13 +376,9 @@ exports.updateStatus = async (req, res) => {
       [status, req.user.id]
     );
 
-    res.json({
-      message: 'Status updated successfully',
-      rider: result.rows[0]
-    });
+    return successResponse(res, { ...result.rows[0], role: 'rider' }, 'Status updated successfully');
   } catch (error) {
-    console.error('Update status error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
@@ -396,21 +389,17 @@ exports.acceptOrder = async (req, res) => {
 
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return errorResponse(res, 'Order not found', 404);
     }
 
     // Verify order is assigned to this rider or available
     if (order.rider_id && order.rider_id !== req.user.id) {
-      return res.status(403).json({
-        message: 'Access denied: Order is assigned to another rider'
-      });
+      return errorResponse(res, 'Access denied: Order is assigned to another rider', 403);
     }
 
     // Verify order belongs to rider's restaurant
     if (order.restaurant_id !== req.user.restaurant_id) {
-      return res.status(403).json({
-        message: 'Access denied: Order does not belong to your restaurant'
-      });
+      return errorResponse(res, 'Access denied: Order does not belong to your restaurant', 403);
     }
 
     // Update order with rider
@@ -419,13 +408,9 @@ exports.acceptOrder = async (req, res) => {
     // Update rider status to busy
     await Rider.updateAvailability(req.user.id, false);
 
-    res.json({
-      message: 'Order accepted successfully',
-      order: updatedOrder
-    });
+    return successResponse(res, updatedOrder, 'Order accepted successfully');
   } catch (error) {
-    console.error('Accept order error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
@@ -436,26 +421,20 @@ exports.rejectOrder = async (req, res) => {
 
     const order = await Order.findById(id);
     if (!order) {
-      return res.status(404).json({ message: 'Order not found' });
+      return errorResponse(res, 'Order not found', 404);
     }
 
     // Verify order is assigned to this rider
     if (order.rider_id !== req.user.id) {
-      return res.status(403).json({
-        message: 'Access denied: Order is not assigned to you'
-      });
+      return errorResponse(res, 'Access denied: Order is not assigned to you', 403);
     }
 
     // Remove rider from order (set status back to accepted or preparing)
     const updatedOrder = await Order.updateStatus(id, order.status, null);
 
-    res.json({
-      message: 'Order rejected successfully',
-      order: updatedOrder
-    });
+    return successResponse(res, updatedOrder, 'Order rejected successfully');
   } catch (error) {
-    console.error('Reject order error:', error);
-    res.status(500).json({ message: 'Server error', error: error.message });
+    next(error);
   }
 };
 
