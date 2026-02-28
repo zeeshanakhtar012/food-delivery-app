@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS riders (
     current_lat DECIMAL(10, 8),
     current_lng DECIMAL(11, 8),
     is_available BOOLEAN DEFAULT TRUE,
-    is_active BOOLEAN DEFAULT TRUE,
+    is_active BOOLEAN DEFAULT FALSE,
     is_blocked BOOLEAN DEFAULT FALSE,
     blocked_reason TEXT,
     blocked_at TIMESTAMP,
