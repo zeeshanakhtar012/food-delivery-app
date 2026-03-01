@@ -130,6 +130,13 @@ router.get('/riders/performance', restaurantAdminController.getRiderPerformance)
 router.get('/requests/pending', restaurantAdminController.getPendingLoginRequests); // [NEW] Login Requests
 
 // ---------------------------------------------------------------------
+// USER MANAGEMENT
+// ---------------------------------------------------------------------
+router.get('/users', restaurantAdminController.getUsers);
+router.put('/users/:id/freeze', restaurantAdminController.toggleUserFreeze);
+router.get('/users/:id/orders', restaurantAdminController.getUserOrders);
+
+// ---------------------------------------------------------------------
 // RESERVATIONS
 // ---------------------------------------------------------------------
 router.post('/reservations', reservationController.createReservation);

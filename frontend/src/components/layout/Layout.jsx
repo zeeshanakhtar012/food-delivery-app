@@ -72,6 +72,7 @@ const Sidebar = ({ role, collapsed, toggleCollapsed }) => {
         { icon: UtensilsCrossed, label: 'Menu Items', to: '/restaurant-admin/menu' },
         { icon: BarChart3, label: 'Reports', to: '/restaurant-admin/reports' },
         { icon: Users, label: 'Staff & Riders', to: '/restaurant-admin/staff' },
+        { icon: Users, label: 'Customers', to: '/restaurant-admin/users' }, // [NEW]
         { icon: Settings, label: 'Settings', to: '/restaurant-admin/settings' },
     ];
 

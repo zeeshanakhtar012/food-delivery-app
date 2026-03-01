@@ -103,6 +103,13 @@ exports.login = async (req, res) => {
       return res.status(401).json({ message: 'Invalid credentials' });
     }
 
+    // Check if user is blocked
+    if (user.is_active === false) {
+      return res.status(403).json({
+        message: 'Your account has been blocked. Please contact the restaurant admin.'
+      });
+    }
+
     // Generate JWT token
     const token = jwt.sign(
       {

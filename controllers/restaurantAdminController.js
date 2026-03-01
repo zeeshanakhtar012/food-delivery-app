@@ -16,6 +16,7 @@ const Order = require('../models/PostgreSQL/Order');
 const Rider = require('../models/PostgreSQL/Rider');
 const Admin = require('../models/PostgreSQL/Admin'); // Your real model
 const Restaurant = require('../models/PostgreSQL/Restaurant');
+const User = require('../models/PostgreSQL/User');
 
 // ============== LOGIN ==============
 exports.login = async (req, res, next) => {
@@ -1209,6 +1210,69 @@ exports.unblockRider = async (req, res, next) => {
 
     await logUpdate(req.user.id, 'restaurant_admin', 'RIDER_UNBLOCK', id, { is_blocked: true }, { is_blocked: false }, req);
     return successResponse(res, result.rows[0], 'Rider unblocked successfully');
+  } catch (error) {
+    next(error);
+  }
+};
+// ============== USER MANAGEMENT ==============
+exports.getUsers = async (req, res, next) => {
+  try {
+    const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+    if (!restaurantId) {
+      return errorResponse(res, 'Authentication error: Missing restaurant info', 401);
+    }
+    const users = await User.findByRestaurantId(restaurantId);
+    return successResponse(res, users, 'Users retrieved');
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.toggleUserFreeze = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+
+    const user = await User.findById(id);
+    if (!user || user.restaurant_id !== restaurantId) {
+      return errorResponse(res, 'User not found or access denied', 404);
+    }
+
+    const updatedUser = await User.toggleActive(id);
+    await logUpdate(req.user.id, 'restaurant_admin', 'USER_FREEZE', id, { is_active: !updatedUser.is_active }, { is_active: updatedUser.is_active }, req);
+
+    return successResponse(res, updatedUser, `User ${updatedUser.is_active ? 'activated' : 'frozen'} successfully`);
+  } catch (error) {
+    next(error);
+  }
+};
+
+exports.getUserOrders = async (req, res, next) => {
+  try {
+    const { id: userId } = req.params;
+    const restaurantId = req.restaurant_id || req.user?.restaurant_id;
+
+    const orders = await query(
+      `SELECT o.*, r.name as restaurant_name 
+       FROM orders o 
+       JOIN restaurants r ON o.restaurant_id = r.id 
+       WHERE o.user_id = $1 AND o.restaurant_id = $2 
+       ORDER BY o.created_at DESC`,
+      [userId, restaurantId]
+    );
+
+    for (const order of orders.rows) {
+      const itemsResult = await query(
+        `SELECT oi.*, f.name as food_name, f.image_url as food_image
+         FROM order_items oi
+         JOIN foods f ON oi.food_id = f.id
+         WHERE oi.order_id = $1`,
+        [order.id]
+      );
+      order.items = itemsResult.rows;
+    }
+
+    return successResponse(res, orders.rows, 'User orders retrieved');
   } catch (error) {
     next(error);
   }

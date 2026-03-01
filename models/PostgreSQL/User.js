@@ -29,7 +29,7 @@ const User = {
   // Find user by ID
   findById: async (id) => {
     const result = await query(
-      `SELECT id, name, email, phone, restaurant_id, avatar_url, created_at 
+      `SELECT id, name, email, phone, restaurant_id, avatar_url, created_at, is_active 
        FROM users WHERE id = $1`,
       [id]
     );
@@ -39,7 +39,7 @@ const User = {
   // Get all users for a restaurant
   findByRestaurantId: async (restaurant_id) => {
     const result = await query(
-      `SELECT id, name, email, phone, restaurant_id, avatar_url, created_at 
+      `SELECT id, name, email, phone, restaurant_id, avatar_url, created_at, is_active 
        FROM users WHERE restaurant_id = $1 ORDER BY created_at DESC`,
       [restaurant_id]
     );

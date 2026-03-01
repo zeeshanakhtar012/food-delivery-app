@@ -5,13 +5,14 @@ import Login from './pages/Login';
 import SuperAdminDashboard from './pages/SuperAdmin/Dashboard';
 import Restaurants from './pages/SuperAdmin/Restaurants';
 import SuperAdminSettings from './pages/SuperAdmin/Settings';
-import Users from './pages/SuperAdmin/Users';
+import SuperAdminUsers from './pages/SuperAdmin/Users';
 import Riders from './pages/SuperAdmin/Riders';
 import RestaurantAdminDashboard from './pages/RestaurantAdmin/Dashboard';
 import Orders from './pages/RestaurantAdmin/Orders';
 import Menu from './pages/RestaurantAdmin/Menu';
 import Categories from './pages/RestaurantAdmin/Categories';
 import Staff from './pages/RestaurantAdmin/Staff';
+import RestaurantAdminUsers from './pages/RestaurantAdmin/Users'; // [NEW]
 import Tables from './pages/RestaurantAdmin/Tables';
 import Reservations from './pages/RestaurantAdmin/Reservations'; // [NEW]
 import Reports from './pages/RestaurantAdmin/Reports';
@@ -69,6 +70,7 @@ function App() {
               <Route path="categories" element={<Categories />} />
               <Route path="menu" element={<Menu />} />
               <Route path="staff" element={<Staff />} />
+              <Route path="users" element={<RestaurantAdminUsers />} /> {/* [NEW] */}
               <Route path="tables" element={<Tables />} />
               <Route path="reservations" element={<Reservations />} />
               <Route path="reports" element={<Reports />} />

@@ -152,6 +152,11 @@ export const restaurantAdmin = {
     getCoupons: () => api.get('/api/coupons'),
     createCoupon: (data) => api.post('/api/coupons', data),
     deleteCoupon: (id) => api.delete(`/api/coupons/${id}`),
+
+    // Users
+    getUsers: () => api.get('/api/admin/users'),
+    toggleUserFreeze: (id) => api.put(`/api/admin/users/${id}/freeze`),
+    getUserOrders: (id) => api.get(`/api/admin/users/${id}/orders`),
 };
 
 export const superAdmin = {
